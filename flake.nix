@@ -72,6 +72,7 @@
       with pkgs;
       {
         devShells.default = mkShell {
+          name = "esp32c3";
           buildInputs = [
             pkg-config
             libllvm
