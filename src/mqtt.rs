@@ -10,8 +10,10 @@ use serde::{Deserialize, Serialize};
 const MQTT_PREFIX: &str = "plantrs";
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Command {
     Add(u32, u32),
+    Drive(u32),
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,7 +47,7 @@ pub fn mqtt(
     mqtt_client.subscribe(&sub_topic, QoS::AtLeastOnce)?;
     // say hello
     let hello_topic = format!("{}/hello", MQTT_PREFIX);
-    mqtt_client.publish(&hello_topic, QoS::AtLeastOnce, false, id.as_bytes())?;
+    mqtt_client.publish(&hello_topic, QoS::AtLeastOnce, true, id.as_bytes())?;
     // return a handle to the client
     Ok(Box::new(mqtt_client))
 }

@@ -1,9 +1,12 @@
-use std::sync::mpsc;
+use std::{
+    sync::mpsc::{self, RecvTimeoutError},
+    time::Duration,
+};
 
-use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::io::EspIOError;
 use esp_idf_svc::mqtt::client::QoS;
+use esp_idf_svc::{eventloop::EspSystemEventLoop, hal::gpio::PinDriver};
 
 use crate::mqtt::{Command, Response};
 
@@ -56,10 +59,33 @@ fn main() -> Result<(), EspIOError> {
     // MQTT example
     let mut mqtt_client = mqtt::mqtt(CONFIG.mqtt_url, CONFIG.mqtt_id, tx)?;
 
+    // hold a pin for x seconds
+    let mut hold_pin = PinDriver::output(peripherals.pins.gpio10)?;
+    let mut hold_pin_secs = 0;
+
     // main loop
-    while let Ok(request) = rx.recv() {
+    loop {
+        let request = match rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(r) => r,
+            Err(RecvTimeoutError::Timeout) => {
+                match hold_pin_secs {
+                    0 => hold_pin.set_low()?,
+                    x => hold_pin_secs = x - 1,
+                };
+                continue;
+            }
+            Err(RecvTimeoutError::Disconnected) => break,
+        };
         let body = match request.command {
             Command::Add(a, b) => (a + b).to_string(),
+            Command::Drive(secs) => {
+                hold_pin_secs = secs;
+                match hold_pin_secs {
+                    0 => hold_pin.set_low()?,
+                    _ => hold_pin.set_high()?,
+                };
+                "ok".into()
+            }
         };
         let response = Response {
             body,
