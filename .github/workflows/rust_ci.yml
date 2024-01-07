@@ -15,6 +15,9 @@ jobs:
   rust-checks:
     name: Rust Checks
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./esp32c3
     strategy:
       fail-fast: false
       matrix:
