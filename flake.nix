@@ -82,6 +82,7 @@
             espflash
             cargo-espflash
             cargo-generate
+            mosquitto # for debugging MQTT
           ];
         };
       }

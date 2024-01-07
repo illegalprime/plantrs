@@ -1,13 +1,23 @@
+use std::sync::mpsc;
+
 use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::io::EspIOError;
+use esp_idf_svc::mqtt::client::QoS;
+
+use crate::mqtt::{Command, Response};
 
 mod blink;
 mod http;
+mod mqtt;
 mod wifi;
 
 #[toml_cfg::toml_config]
 pub struct Config {
+    #[default("")]
+    mqtt_url: &'static str,
+    #[default("")]
+    mqtt_id: &'static str,
     #[default("")]
     wifi_ssid: &'static str,
     #[default("")]
@@ -40,8 +50,36 @@ fn main() -> Result<(), EspIOError> {
     // HTTP GET example
     http::get("https://crouton.net/")?;
 
-    // blink
-    blink::blink(peripherals.pins.gpio10)?;
+    // simple request-reply handler
+    let (tx, rx) = mpsc::channel();
+
+    // MQTT example
+    let mut mqtt_client = mqtt::mqtt(CONFIG.mqtt_url, CONFIG.mqtt_id, tx)?;
+
+    // main loop
+    while let Ok(request) = rx.recv() {
+        let body = match request.command {
+            Command::Add(a, b) => (a + b).to_string(),
+        };
+        let response = Response {
+            body,
+            correlate: request.correlate,
+        };
+        let json = match serde_json::to_string(&response) {
+            Ok(j) => j,
+            Err(e) => {
+                log::warn!("failed to serialize {:?}: {:?}", response, e);
+                continue;
+            }
+        };
+        log::info!("sending response: {}", json);
+        mqtt_client.publish(
+            &request.response_topic,
+            QoS::AtLeastOnce,
+            false,
+            json.as_bytes(),
+        )?;
+    }
 
     Ok(())
 }

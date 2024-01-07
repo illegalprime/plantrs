@@ -7,6 +7,7 @@ use esp_idf_svc::{
     sys::EspError,
 };
 
+#[allow(dead_code)]
 pub fn blink(pin: impl Peripheral<P = Gpio10>) -> Result<(), EspError> {
     // grab a pin, make it an output
     let mut pin = PinDriver::output(pin)?;
