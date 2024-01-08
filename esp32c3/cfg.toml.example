@@ -1,4 +1,4 @@
-[hardware-check]
+[plantrs]
 mqtt_url = "mqtt://10.0.0.10"
 mqtt_id = "lime-tree"
 wifi_ssid = "FBI Surveillance Van"

@@ -22,7 +22,7 @@ pub fn wifi(
     info!("Starting wifi...");
     wifi.start()?;
 
-    info!("Scanning wifi...");
+    info!("Scanning for '{}'...", ssid);
     let ap_infos = wifi.scan()?;
     let ap = ap_infos.into_iter().find(|ap| ap.ssid == ssid);
     let channel = ap.map(|cfg| cfg.channel);
