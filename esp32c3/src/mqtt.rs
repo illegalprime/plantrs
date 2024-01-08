@@ -45,7 +45,9 @@ pub fn mqtt(
     tx: Sender<Message>,
 ) -> Result<Box<EspMqttClient<'static>>, EspIOError> {
     // default configuration
+    let client_id = format!("plantrs/{}", id);
     let mqtt_config = MqttClientConfiguration {
+        client_id: Some(&client_id),
         lwt: Some(LwtConfiguration {
             topic: MQTT_GOODBYE,
             payload: id.as_bytes(),
