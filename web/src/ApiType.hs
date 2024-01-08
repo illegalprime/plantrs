@@ -20,9 +20,12 @@ type WaterAPI = "water" :> QueryParam "t" Word32 :> Post '[JSON] Response
 
 type AddAPI = "add" :> Capture "a" Word32 :> Capture "b" Word32 :> Post '[JSON] Response
 
+type DiscoverAPI = "discover" :> Get '[JSON] [Text]
+
 type Api =
   Plant :> WaterAPI
     :<|> Plant :> AddAPI
+    :<|> DiscoverAPI
 
 appApi :: Proxy Api
 appApi = Proxy
@@ -35,8 +38,14 @@ addHandler :: Commander -> Text -> Word32 -> Word32 -> Handler Response
 addHandler commander plant a b = do
   liftIO $ commander plant $ Add a b
 
-server :: Commander -> Server Api
-server cmd = waterHandler cmd :<|> addHandler cmd
+discoverHandler :: MVar (Set Text) -> Handler [Text]
+discoverHandler = (toList <$>) . readMVar
+
+server :: Commander -> MVar (Set Text) -> Server Api
+server cmd clients =
+  waterHandler cmd
+    :<|> addHandler cmd
+    :<|> discoverHandler clients
 
 type Commander = Text -> Command -> IO Response
 
@@ -59,14 +68,14 @@ runCommand mc msgs plant cmd = do
       Just r@Response {correlate = c} | c == nonce -> pure $ Just r
       _ -> pure Nothing
 
-app :: MQTTClient -> Chan LByteString -> IO Application
-app mc msgs = do
+app :: MQTTClient -> Chan LByteString -> MVar (Set Text) -> IO Application
+app mc msgs clients = do
   -- init command handler
   let commander = runCommand mc msgs
   -- subscribe to command response topic
   print =<< subscribe mc [(topic, options)] []
   -- build app description
-  pure $ serve appApi $ server commander
+  pure $ serve appApi $ server commander clients
   where
     topic = fromString . toString $ responseTopic
     options = subOptions {_subQoS = QoS1}

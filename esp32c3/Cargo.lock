@@ -1081,6 +1081,7 @@ name = "plantrs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "const_format",
  "embuild",
  "esp-idf-svc",
  "log",

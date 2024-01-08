@@ -8,7 +8,7 @@ use esp_idf_svc::io::EspIOError;
 use esp_idf_svc::mqtt::client::QoS;
 use esp_idf_svc::{eventloop::EspSystemEventLoop, hal::gpio::PinDriver};
 
-use crate::mqtt::{Command, Response};
+use crate::mqtt::{Command, Message, Response};
 
 mod blink;
 mod http;
@@ -66,7 +66,12 @@ fn main() -> Result<(), EspIOError> {
     // main loop
     loop {
         let request = match rx.recv_timeout(Duration::from_secs(1)) {
-            Ok(r) => r,
+            Ok(Message::Request(r)) => r,
+            Ok(Message::Hello) => {
+                // say hello
+                mqtt::hello(&mut mqtt_client, CONFIG.mqtt_id)?;
+                continue;
+            }
             Err(RecvTimeoutError::Timeout) => {
                 match hold_pin_secs {
                     0 => hold_pin.set_low()?,

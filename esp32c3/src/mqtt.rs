@@ -1,13 +1,18 @@
-use std::sync::mpsc::Sender;
+use std::{str::from_utf8, sync::mpsc::Sender};
 
+use const_format::formatcp;
 use esp_idf_svc::{
     io::EspIOError,
-    mqtt::client::{EspMqttClient, EspMqttMessage, Event, MqttClientConfiguration, QoS},
+    mqtt::client::{EspMqttClient, Event, LwtConfiguration, MqttClientConfiguration, QoS},
+    sys::EspError,
 };
 use log::warn;
 use serde::{Deserialize, Serialize};
 
 const MQTT_PREFIX: &str = "plantrs";
+const MQTT_HELLO: &str = formatcp!("{}/hello", MQTT_PREFIX);
+const MQTT_GOODBYE: &str = formatcp!("{}/goodbye", MQTT_PREFIX);
+const MQTT_DISCOVER: &str = formatcp!("{}/discover", MQTT_PREFIX);
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -23,6 +28,11 @@ pub struct Request {
     pub correlate: u128,
 }
 
+pub enum Message {
+    Request(Request),
+    Hello,
+}
+
 #[derive(Debug, Serialize)]
 pub struct Response {
     pub body: String,
@@ -32,32 +42,46 @@ pub struct Response {
 pub fn mqtt(
     url: &str,
     id: &str,
-    tx: Sender<Request>,
+    tx: Sender<Message>,
 ) -> Result<Box<EspMqttClient<'static>>, EspIOError> {
     // default configuration
-    let mqtt_config = MqttClientConfiguration::default();
+    let mqtt_config = MqttClientConfiguration {
+        lwt: Some(LwtConfiguration {
+            topic: MQTT_GOODBYE,
+            payload: id.as_bytes(),
+            qos: QoS::AtLeastOnce,
+            retain: false,
+        }),
+        ..Default::default()
+    };
     // forward all received requests to handler thread
-    let mut mqtt_client = EspMqttClient::new(url, &mqtt_config, move |m| match m {
-        Ok(Event::Received(msg)) => send_request(msg, &tx)
-            .unwrap_or_else(|e| warn!("Error processing request {:?}: {:?}", msg.topic(), e)),
-        _ => warn!("Received from MQTT: {:?}", m),
+    let mut mqtt_client = EspMqttClient::new(url, &mqtt_config, move |m| {
+        match m {
+            // say hello
+            Ok(Event::Received(msg)) if msg.topic() == Some(MQTT_DISCOVER) => {
+                tx.send(Message::Hello)
+            }
+            // handle messages
+            Ok(Event::Received(msg)) => match serde_json::from_slice(msg.data()) {
+                Ok(request) => tx.send(Message::Request(request)),
+                Err(_) => Ok(warn!("could not parse: {:?}", from_utf8(msg.data()))),
+            },
+            // other server events
+            _ => Ok(warn!("Received from MQTT: {:?}", m)),
+        }
+        .expect("channel disconnect")
     })?;
-    // subscribe to the topic
+    // subscribe to requests topic
     let sub_topic = format!("{}/{}/request", MQTT_PREFIX, id);
     mqtt_client.subscribe(&sub_topic, QoS::AtLeastOnce)?;
-    // say hello
-    let hello_topic = format!("{}/hello", MQTT_PREFIX);
-    mqtt_client.publish(&hello_topic, QoS::AtLeastOnce, true, id.as_bytes())?;
+    // subscribe to discover topic
+    mqtt_client.subscribe(MQTT_DISCOVER, QoS::AtLeastOnce)?;
+    // say initial hello
+    hello(&mut mqtt_client, id)?;
     // return a handle to the client
     Ok(Box::new(mqtt_client))
 }
 
-fn send_request(msg: &EspMqttMessage<'_>, tx: &Sender<Request>) -> anyhow::Result<()> {
-    // attempt to parse into text and JSON
-    log::info!("got request: {:?}", std::str::from_utf8(msg.data()));
-    let request = serde_json::from_slice(msg.data())?;
-    log::info!("parsed json: {:?}", request);
-    // send request to main handler
-    tx.send(request)?;
-    Ok(())
+pub fn hello(mqtt_client: &mut EspMqttClient<'static>, id: &str) -> Result<u32, EspError> {
+    mqtt_client.publish(MQTT_HELLO, QoS::AtLeastOnce, false, id.as_bytes())
 }
