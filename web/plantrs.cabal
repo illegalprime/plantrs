@@ -59,6 +59,8 @@ common shared
     LambdaCase
     MultiParamTypeClasses
     MultiWayIf
+    NamedFieldPuns
+    NoFieldSelectors
     NoStarIsType
     NumericUnderscores
     OverloadedStrings
@@ -82,6 +84,7 @@ common shared
     , data-default
     , directory
     , filepath
+    , http-api-data
     , monad-loops
     , mtl
     , net-mqtt

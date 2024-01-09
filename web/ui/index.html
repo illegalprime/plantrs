@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/htmx.org@1.9.10"
+        integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
+        crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10/dist/ext/client-side-templates.js"></script>
+    <script src="https://unpkg.com/mustache@4.2.0"></script>
+    <title>Plant.rs</title>
+</head>
+
+<body>
+    <div hx-ext="client-side-templates">
+        <h1>Plant.rs</h1>
+
+        <div hx-get="/discover" hx-trigger="load" hx-swap="innerHTML" mustache-array-template="plants-template">
+        </div>
+
+        <template id="plants-template">
+            {{#data}}
+            <h2>{{.}}</h2>
+            <h3>Add: <span id="{{.}}-add-out"></span></h3>
+            <form hx-post="/{{.}}/add" hx-target="#{{.}}-add-out" mustache-template="text-tmpl">
+                <input type="number" name="a">
+                <input type="number" name="b">
+                <input type="submit" value="Add!">
+            </form>
+            {{/data}}
+        </template>
+
+        <template id="text-tmpl">
+            <b>{{.}}</b>
+        </template>
+    </div>
+</body>
+
+</html>

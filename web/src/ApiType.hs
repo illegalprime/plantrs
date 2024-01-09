@@ -11,15 +11,16 @@ import Network.Wai.Middleware.Cors (simpleCors)
 import Servant
 import System.Random (randomIO)
 import Text.Printf (printf)
+import Web.FormUrlEncoded (FromForm)
 
 responseTopic :: Text
 responseTopic = "plantrs/responses"
 
 type Plant = Capture "plant" Text
 
-type WaterAPI = "water" :> QueryParam "t" Word32 :> Post '[JSON] Response
+type WaterAPI = "water" :> QueryParam "t" Word32 :> Post '[JSON] Text
 
-type AddAPI = "add" :> Capture "a" Word32 :> Capture "b" Word32 :> Post '[JSON] Response
+type AddAPI = "add" :> ReqBody '[FormUrlEncoded, JSON] AddReq :> Post '[JSON] Text
 
 type DiscoverAPI = "discover" :> Get '[JSON] [Text]
 
@@ -27,16 +28,17 @@ type Api =
   Plant :> WaterAPI
     :<|> Plant :> AddAPI
     :<|> DiscoverAPI
+    :<|> Raw
 
 appApi :: Proxy Api
 appApi = Proxy
 
-waterHandler :: Commander -> Text -> Maybe Word32 -> Handler Response
+waterHandler :: Commander -> Text -> Maybe Word32 -> Handler Text
 waterHandler commander plant secs = do
   liftIO $ commander plant $ Drive $ fromMaybe 0 secs
 
-addHandler :: Commander -> Text -> Word32 -> Word32 -> Handler Response
-addHandler commander plant a b = do
+addHandler :: Commander -> Text -> AddReq -> Handler Text
+addHandler commander plant AddReq {a, b} = do
   liftIO $ commander plant $ Add a b
 
 discoverHandler :: MVar (Set Text) -> Handler [Text]
@@ -47,8 +49,9 @@ server cmd clients =
   waterHandler cmd
     :<|> addHandler cmd
     :<|> discoverHandler clients
+    :<|> serveDirectoryFileServer "ui"
 
-type Commander = Text -> Command -> IO Response
+type Commander = Text -> Command -> IO Text
 
 runCommand :: MQTTClient -> Chan LByteString -> Commander
 runCommand mc msgs plant cmd = do
@@ -66,7 +69,7 @@ runCommand mc msgs plant cmd = do
     putLBSLn $ "received message: " <> msg
     case decode msg of
       Nothing -> Nothing <$ putLBSLn ("could not parse: " <> msg)
-      Just r@Response {correlate = c} | c == nonce -> pure $ Just r
+      Just Response {correlate = c, body = b} | c == nonce -> pure $ Just b
       _ -> pure Nothing
 
 app :: MQTTClient -> Chan LByteString -> MVar (Set Text) -> IO Application
@@ -106,6 +109,15 @@ data Response = Response
 
 instance ToJSON Response
 instance FromJSON Response
+
+data AddReq = AddReq
+  { a :: Word32
+  , b :: Word32
+  }
+  deriving stock (Eq, Show, Generic)
+
+instance FromForm AddReq
+instance FromJSON AddReq
 
 snakeCaseJson :: Options
 snakeCaseJson =
