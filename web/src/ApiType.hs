@@ -8,6 +8,7 @@ import Data.Aeson
 import Data.Aeson.Casing (snakeCase)
 import Network.MQTT.Client (MQTTClient, QoS (QoS1), SubOptions (_subQoS), publish, subOptions, subscribe)
 import Network.Wai.Middleware.Cors (simpleCors)
+import Paths_plantrs (getDataDir)
 import Servant
 import System.Random (randomIO)
 import Text.Printf (printf)
@@ -44,12 +45,12 @@ addHandler commander plant AddReq {a, b} = do
 discoverHandler :: MVar (Set Text) -> Handler [Text]
 discoverHandler = (toList <$>) . readMVar
 
-server :: Commander -> MVar (Set Text) -> Server Api
-server cmd clients =
+server :: FilePath -> Commander -> MVar (Set Text) -> Server Api
+server static cmd clients =
   waterHandler cmd
     :<|> addHandler cmd
     :<|> discoverHandler clients
-    :<|> serveDirectoryFileServer "ui"
+    :<|> serveDirectoryFileServer static
 
 type Commander = Text -> Command -> IO Text
 
@@ -74,12 +75,14 @@ runCommand mc msgs plant cmd = do
 
 app :: MQTTClient -> Chan LByteString -> MVar (Set Text) -> IO Application
 app mc msgs clients = do
+  -- directory to serve static files from
+  static <- getDataDir
   -- init command handler
   let commander = runCommand mc msgs
   -- subscribe to command response topic
   print =<< subscribe mc [(topic, options)] []
   -- build app description
-  pure $ simpleCors $ serve appApi $ server commander clients
+  pure $ simpleCors $ serve appApi $ server static commander clients
   where
     topic = fromString . toString $ responseTopic
     options = subOptions {_subQoS = QoS1}
