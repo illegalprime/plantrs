@@ -95,6 +95,7 @@ common shared
     , shower
     , time
     , wai
+    , wai-cors
     , warp
     , with-utf8
 

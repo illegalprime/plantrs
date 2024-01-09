@@ -7,6 +7,7 @@ import Control.Monad.Loops (untilJust)
 import Data.Aeson
 import Data.Aeson.Casing (snakeCase)
 import Network.MQTT.Client (MQTTClient, QoS (QoS1), SubOptions (_subQoS), publish, subOptions, subscribe)
+import Network.Wai.Middleware.Cors (simpleCors)
 import Servant
 import System.Random (randomIO)
 import Text.Printf (printf)
@@ -75,7 +76,7 @@ app mc msgs clients = do
   -- subscribe to command response topic
   print =<< subscribe mc [(topic, options)] []
   -- build app description
-  pure $ serve appApi $ server commander clients
+  pure $ simpleCors $ serve appApi $ server commander clients
   where
     topic = fromString . toString $ responseTopic
     options = subOptions {_subQoS = QoS1}
