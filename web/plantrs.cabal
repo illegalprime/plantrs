@@ -115,7 +115,10 @@ executable plantrs
   import:          shared
   main-is:         Main.hs
   other-modules:
-    ApiType
+    Api
+    Commands
+    Config
     Paths_plantrs
+    Server
 
   autogen-modules: Paths_plantrs

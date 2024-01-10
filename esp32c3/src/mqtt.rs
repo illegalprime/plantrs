@@ -13,6 +13,7 @@ const MQTT_PREFIX: &str = "plantrs";
 const MQTT_HELLO: &str = formatcp!("{}/hello", MQTT_PREFIX);
 const MQTT_GOODBYE: &str = formatcp!("{}/goodbye", MQTT_PREFIX);
 const MQTT_DISCOVER: &str = formatcp!("{}/discover", MQTT_PREFIX);
+const MQTT_REQUEST: &str = formatcp!("{}/request", MQTT_PREFIX);
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -74,7 +75,7 @@ pub fn mqtt(
         .expect("channel disconnect")
     })?;
     // subscribe to requests topic
-    let sub_topic = format!("{}/{}/request", MQTT_PREFIX, id);
+    let sub_topic = format!("{}/{}", MQTT_REQUEST, id);
     mqtt_client.subscribe(&sub_topic, QoS::AtLeastOnce)?;
     // subscribe to discover topic
     mqtt_client.subscribe(MQTT_DISCOVER, QoS::AtLeastOnce)?;
