@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    <title>Plant.rs</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://unpkg.com/htmx.org@1.9.10"
@@ -9,32 +10,68 @@
         crossorigin="anonymous"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10/dist/ext/client-side-templates.js"></script>
     <script src="https://unpkg.com/mustache@4.2.0"></script>
-    <title>Plant.rs</title>
+    <link rel="stylesheet" href="https://necolas.github.io/normalize.css/8.0.1/normalize.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <script src="https://kit.fontawesome.com/4abb0f2a3e.js" crossorigin="anonymous"></script>
 </head>
 
 <body>
-    <div hx-ext="client-side-templates">
-        <h1>Plant.rs</h1>
-
-        <div hx-get="/discover" hx-trigger="load" hx-swap="innerHTML" mustache-array-template="plants-template">
+    <nav class="level mt-5 mb-0">
+        <p class="is-size-1 level-item has-text-centered">
+            Plant.rs
+        </p>
+    </nav>
+    <section class="section" hx-ext="client-side-templates">
+        <div class="container is-max-desktop">
+            <div class="plants-list columns" hx-get="/discover" hx-trigger="load" hx-swap="innerHTML"
+                mustache-array-template="plants-template">
+            </div>
         </div>
-
-        <template id="plants-template">
-            {{#data}}
-            <h2>{{.}}</h2>
-            <h3>Add: <span id="{{.}}-add-out"></span></h3>
-            <form hx-post="/{{.}}/add" hx-target="#{{.}}-add-out" mustache-template="text-tmpl">
-                <input type="number" name="a">
-                <input type="number" name="b">
-                <input type="submit" value="Add!">
-            </form>
-            {{/data}}
-        </template>
-
-        <template id="text-tmpl">
-            <b>{{.}}</b>
-        </template>
-    </div>
+    </section>
 </body>
+
+<template id="plants-template">
+    {{#data}}
+    <div class="column is-one-third">
+        <div class="card">
+            <div class="card-image">
+                <figure class="image is-4by3">
+                    <img src="/images/house-plants.webp" alt="">
+                </figure>
+            </div>
+            <div class="card-content">
+                <div class="content">
+                    <h2>{{name}} <i class="is-size-4 fa-solid fa-house-signal ml-2"></i></span></h2>
+                    <form hx-post="/{{id}}/add" hx-target="#{{id}}-add-out" mustache-template="text-tmpl">
+                        <div class="columns is-vcentered">
+                            <div class="column">
+                                <input class="input" type="text" name="a">
+                            </div>
+                            <div class="column px-0">
+                                <input class="button" type="submit" value="+">
+                            </div>
+                            <div class="column">
+                                <input class="input" type="text" name="b">
+                            </div>
+                            <div class="column has-text-right">
+                                <h3 class="mb-0"> = <span id="{{id}}-add-out">?</span></h3>
+                            </div>
+                        </div>
+                        <div class="block">
+                            <button class="button" hx-trigger="click" hx-post="/{{id}}/water?t=5" hx-swap="none">
+                                Water <i class="ml-3 fa-solid fa-droplet"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{/data}}
+</template>
+
+<template id="text-tmpl">
+    {{.}}
+</template>
 
 </html>

@@ -23,7 +23,7 @@ type WaterAPI = "water" :> QueryParam "t" Word32 :> Post '[JSON] Text
 
 type AddAPI = "add" :> ReqBody '[FormUrlEncoded, JSON] AddReq :> Post '[JSON] Text
 
-type DiscoverAPI = "discover" :> Get '[JSON] [Text]
+type DiscoverAPI = "discover" :> Get '[JSON] [Client]
 
 type Api =
   Plant :> WaterAPI
@@ -42,8 +42,10 @@ addHandler :: Commander -> Text -> AddReq -> Handler Text
 addHandler commander plant AddReq {a, b} = do
   liftIO $ commander plant $ Add a b
 
-discoverHandler :: MVar (Set Text) -> Handler [Text]
-discoverHandler = (toList <$>) . readMVar
+discoverHandler :: MVar (Set Text) -> Handler [Client]
+discoverHandler = (map toClient . toList <$>) . readMVar
+  where
+    toClient c = Client {id = c, name = getName c}
 
 server :: FilePath -> Commander -> MVar (Set Text) -> Server Api
 server static cmd clients =
@@ -87,6 +89,13 @@ app mc msgs clients = do
     topic = fromString . toString $ responseTopic
     options = subOptions {_subQoS = QoS1}
 
+data Client = Client
+  { id :: Text
+  , name :: Text
+  }
+  deriving stock (Eq, Show, Generic)
+instance ToJSON Client
+
 data Command
   = Add Word32 Word32
   | Drive Word32
@@ -128,3 +137,8 @@ snakeCaseJson =
     { sumEncoding = ObjectWithSingleField
     , constructorTagModifier = snakeCase
     }
+
+-- TODO: add user-specified name
+getName :: Text -> Text
+getName "lime-tree" = "Lime Tree"
+getName _ = "Unknown"

@@ -18,7 +18,10 @@ synopsis:           A template for Haskell projects using Nix
 -- bug-reports:
 
 data-dir:           ui
-data-files:         *.html
+data-files:
+  *.html
+  images/*.webp
+
 extra-source-files:
   LICENSE
   README.md

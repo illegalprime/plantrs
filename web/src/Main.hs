@@ -9,19 +9,13 @@ import Network.MQTT.Topic (toFilter)
 import Network.URI (parseURI)
 import Network.Wai.Handler.Warp
 
-helloTopic :: Topic
-helloTopic = "plantrs/hello"
-
-goodbyeTopic :: Topic
-goodbyeTopic = "plantrs/goodbye"
-
-discoverTopic :: Topic
-discoverTopic = "plantrs/discover"
-
 main :: IO ()
 main = do
+  -- TODO: configure MQTT url
   let uri = fromJust $ parseURI "mqtt://10.10.0.184"
+  -- TODO: configure server port
   putTextLn "Running server on port 8081..."
+  -- TODO: save offline status
   clients <- newMVar Set.empty
   msgs <- newChan
   mc <- connectURI mqttConfig {_msgCB = SimpleCallback $ msgReceived msgs clients} uri
@@ -48,3 +42,13 @@ main = do
           modifyMVar_ clients (pure . Set.delete (decodeUtf8 m))
     -- other requests dealt with by http handlers
     msgReceived chan _ _ _ m _ = writeChan chan m
+
+-- TODO: configure topics
+helloTopic :: Topic
+helloTopic = "plantrs/hello"
+
+goodbyeTopic :: Topic
+goodbyeTopic = "plantrs/goodbye"
+
+discoverTopic :: Topic
+discoverTopic = "plantrs/discover"
