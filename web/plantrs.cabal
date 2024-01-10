@@ -106,6 +106,7 @@ common shared
     , wai-cors
     , warp
     , with-utf8
+    , yaml
 
   hs-source-dirs:     src
   default-language:   Haskell2010
