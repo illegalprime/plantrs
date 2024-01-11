@@ -41,8 +41,8 @@
             </div>
             <div class="card-content">
                 <div class="content">
-                    <h2>{{name}} <i class="is-size-4 fa-solid fa-house-signal ml-2"></i></span></h2>
-                    <form hx-post="/{{id}}/add" hx-target="#{{id}}-add-out" mustache-template="text-tmpl">
+                    <h2>{{plantLabel}} <i class="is-size-4 fa-solid fa-house-signal ml-2"></i></span></h2>
+                    <form hx-post="/{{plantName}}/add" hx-target="#{{plantName}}-add-out" mustache-template="text-tmpl">
                         <div class="columns is-vcentered">
                             <div class="column">
                                 <input class="input" type="text" name="a">
@@ -54,11 +54,11 @@
                                 <input class="input" type="text" name="b">
                             </div>
                             <div class="column has-text-right">
-                                <h3 class="mb-0"> = <span id="{{id}}-add-out">?</span></h3>
+                                <h3 class="mb-0"> = <span id="{{plantName}}-add-out">?</span></h3>
                             </div>
                         </div>
                         <div class="block">
-                            <button class="button" hx-trigger="click" hx-post="/{{id}}/water?t=5" hx-swap="none">
+                            <button class="button" hx-trigger="click" hx-post="/{{plantName}}/water?t=5" hx-swap="none">
                                 Water <i class="ml-3 fa-solid fa-droplet"></i>
                             </button>
                         </div>

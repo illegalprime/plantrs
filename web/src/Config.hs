@@ -1,6 +1,7 @@
 module Config (
   Configuration (..),
   Topics (..),
+  Database (..),
   toTopic,
   defaultConfig,
 ) where
@@ -12,6 +13,7 @@ import Network.MQTT.Client (Topic)
 data Configuration = Configuration
   { port :: Int
   , mqtt :: Text
+  , db :: Database
   , topics :: Topics
   }
   deriving stock (Show, Eq, Generic)
@@ -23,8 +25,14 @@ instance Default Configuration where
     Configuration
       { port = 8080
       , mqtt = "mqtt://127.0.0.1"
+      , db = Sqlite "db.sqlite"
       , topics = def
       }
+
+newtype Database = Sqlite Text
+  deriving stock (Show, Eq, Generic)
+instance FromJSON Database
+instance ToJSON Database
 
 data Topics = Topics
   { helloTopic :: Text

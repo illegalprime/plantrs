@@ -6,10 +6,12 @@ module Api (
   Request (..),
   Response (..),
   AddReq (..),
+  LabelReq (..),
 ) where
 
 import Data.Aeson (FromJSON, Options (..), SumEncoding (..), ToJSON (..), defaultOptions, genericToJSON)
 import Data.Aeson.Casing (snakeCase)
+import Models qualified
 import Servant
 import Web.FormUrlEncoded (FromForm)
 
@@ -19,11 +21,18 @@ type WaterAPI = "water" :> QueryParam "t" Word32 :> Post '[JSON] Text
 
 type AddAPI = "add" :> ReqBody '[FormUrlEncoded, JSON] AddReq :> Post '[JSON] Text
 
-type DiscoverAPI = "discover" :> Get '[JSON] [Client]
+type InfoAPI = "info" :> Get '[JSON] (Maybe Models.Plant)
+
+type LabelAPI = "label" :> ReqBody '[FormUrlEncoded, JSON] LabelReq :> Post '[JSON] ()
+
+type DiscoverAPI = "discover" :> Get '[JSON] [Models.Plant]
 
 type AppApi =
+  -- TODO: scope these under 'plant'?
   Plant :> WaterAPI
     :<|> Plant :> AddAPI
+    :<|> Plant :> InfoAPI
+    :<|> Plant :> LabelAPI
     :<|> DiscoverAPI
     :<|> Raw
 
@@ -71,6 +80,14 @@ data AddReq = AddReq
 
 instance FromForm AddReq
 instance FromJSON AddReq
+
+newtype LabelReq = LabelReq
+  { label :: Text
+  }
+  deriving stock (Eq, Show, Generic)
+
+instance FromForm LabelReq
+instance FromJSON LabelReq
 
 snakeCaseJson :: Options
 snakeCaseJson =

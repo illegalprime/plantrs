@@ -58,6 +58,7 @@ common shared
     FlexibleContexts
     FlexibleInstances
     GADTSyntax
+    GADTs
     GeneralisedNewtypeDeriving
     ImportQualifiedPost
     KindSignatures
@@ -71,33 +72,39 @@ common shared
     OverloadedStrings
     PolyKinds
     PostfixOperators
+    QuasiQuotes
     RankNTypes
     ScopedTypeVariables
     StandaloneDeriving
     StandaloneKindSignatures
+    TemplateHaskell
     TupleSections
     TypeApplications
     TypeFamilies
     TypeOperators
+    UndecidableInstances
     ViewPatterns
 
   build-depends:
     , aeson
     , aeson-casing
     , async
-    , base            >=4.13.0.0 && <4.18.0.0.0
+    , base               >=4.13.0.0 && <4.18.0.0.0
     , data-default
     , directory
     , filepath
     , http-api-data
+    , monad-logger
     , monad-loops
     , mtl
     , net-mqtt
     , network-uri
     , optics-core
+    , persistent
+    , persistent-sqlite
     , profunctors
     , random
-    , relude          >=1.0
+    , relude             >=1.0
     , servant
     , servant-server
     , shower
@@ -118,6 +125,9 @@ executable plantrs
     Api
     Commands
     Config
+    Database
+    Discovery
+    Models
     Paths_plantrs
     Server
 

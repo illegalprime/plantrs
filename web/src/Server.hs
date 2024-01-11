@@ -6,6 +6,9 @@ import Api
 import Commands (Commander, runCommand)
 import Config (Topics (Topics, responseTopic))
 import Control.Concurrent (Chan)
+import Database (findPlant, labelPlant, listPlants)
+import Database.Persist.Sql (ConnectionPool)
+import Models (Plant)
 import Network.MQTT.Client (MQTTClient, QoS (QoS1), SubOptions (_subQoS), subOptions, subscribe)
 import Network.Wai.Middleware.Cors (simpleCors)
 import Paths_plantrs (getDataDir)
@@ -19,20 +22,26 @@ addHandler :: Commander -> Text -> AddReq -> Handler Text
 addHandler commander plant AddReq {a, b} = do
   liftIO $ commander plant $ Add a b
 
-discoverHandler :: MVar (Set Text) -> Handler [Client]
-discoverHandler = (map toClient . toList <$>) . readMVar
-  where
-    toClient c = Client {id = c, name = getName c}
+discoverHandler :: ConnectionPool -> MVar (Set Text) -> Handler [Plant]
+discoverHandler db _online = listPlants db
 
-server :: FilePath -> Commander -> MVar (Set Text) -> Server AppApi
-server static cmd clients =
+infoHandler :: ConnectionPool -> Text -> Handler (Maybe Plant)
+infoHandler = findPlant
+
+labelHandler :: ConnectionPool -> Text -> LabelReq -> Handler ()
+labelHandler db plant LabelReq {label} = labelPlant db plant label
+
+server :: FilePath -> ConnectionPool -> Commander -> MVar (Set Text) -> Server AppApi
+server static db cmd clients =
   waterHandler cmd
     :<|> addHandler cmd
-    :<|> discoverHandler clients
+    :<|> infoHandler db
+    :<|> labelHandler db
+    :<|> discoverHandler db clients
     :<|> serveDirectoryFileServer static
 
-app :: Topics -> MQTTClient -> Chan LByteString -> MVar (Set Text) -> IO Application
-app topics@Topics {responseTopic} mc msgs clients = do
+app :: ConnectionPool -> Topics -> MQTTClient -> Chan LByteString -> MVar (Set Text) -> IO Application
+app db topics@Topics {responseTopic} mc msgs clients = do
   -- directory to serve static files from
   static <- getDataDir
   -- init command handler
@@ -40,12 +49,7 @@ app topics@Topics {responseTopic} mc msgs clients = do
   -- subscribe to command response topic
   print =<< subscribe mc [(topic, options)] []
   -- build app description
-  pure $ simpleCors $ serve appApi $ server static commander clients
+  pure $ simpleCors $ serve appApi $ server static db commander clients
   where
     topic = fromString . toString $ responseTopic
     options = subOptions {_subQoS = QoS1}
-
--- TODO: add user-specified name
-getName :: Text -> Text
-getName "lime-tree" = "Lime Tree"
-getName _ = "Unknown"

@@ -44,6 +44,7 @@
               check = false;
             };
             */
+            # hlint.options = [];
           };
 
           # Development shell configuration
@@ -64,6 +65,10 @@
           programs.nixpkgs-fmt.enable = true;
           programs.cabal-fmt.enable = true;
           programs.hlint.enable = true;
+          settings.formatter.hlint.options = [
+            "-X"
+            "QuasiQuotes"
+          ];
 
           # We use fourmolu
           programs.ormolu.package = pkgs.haskellPackages.fourmolu;
