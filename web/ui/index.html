@@ -41,28 +41,21 @@
             </div>
             <div class="card-content">
                 <div class="content">
-                    <h2>{{plantLabel}} <i class="is-size-4 fa-solid fa-house-signal ml-2"></i></span></h2>
-                    <form hx-post="/{{plantName}}/add" hx-target="#{{plantName}}-add-out" mustache-template="text-tmpl">
-                        <div class="columns is-vcentered">
-                            <div class="column">
-                                <input class="input" type="text" name="a">
-                            </div>
-                            <div class="column px-0">
-                                <input class="button" type="submit" value="+">
-                            </div>
-                            <div class="column">
-                                <input class="input" type="text" name="b">
-                            </div>
-                            <div class="column has-text-right">
-                                <h3 class="mb-0"> = <span id="{{plantName}}-add-out">?</span></h3>
-                            </div>
-                        </div>
-                        <div class="block">
-                            <button class="button" hx-trigger="click" hx-post="/{{plantName}}/water?t=5" hx-swap="none">
-                                Water <i class="ml-3 fa-solid fa-droplet"></i>
-                            </button>
-                        </div>
-                    </form>
+                    <h2>{{plant.plantLabel}}</h2>
+                    <div class="block is-vcentered">
+                        {{#online}}
+                        <p><i class="fa-sharp fa-solid fa-circle fa-sm" style="color: #4adc4b;"></i> Online</p>
+                        {{/online}}
+                        {{^online}}
+                        <p><i class="fa-sharp fa-solid fa-circle fa-sm" style="color: #d94c50;"></i> Offline</p>
+                        {{/online}}
+                    </div>
+                    <div class="block has-text-right">
+                        <button class="button" hx-trigger="click" hx-post="/{{plant.plantName}}/water?t=5"
+                            hx-swap="none">
+                            Water Now<i class="ml-3 fa-solid fa-droplet"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

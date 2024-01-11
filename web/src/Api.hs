@@ -7,6 +7,7 @@ module Api (
   Response (..),
   AddReq (..),
   LabelReq (..),
+  OnlinePlant (..),
 ) where
 
 import Data.Aeson (FromJSON, Options (..), SumEncoding (..), ToJSON (..), defaultOptions, genericToJSON)
@@ -25,7 +26,7 @@ type InfoAPI = "info" :> Get '[JSON] (Maybe Models.Plant)
 
 type LabelAPI = "label" :> ReqBody '[FormUrlEncoded, JSON] LabelReq :> Post '[JSON] ()
 
-type DiscoverAPI = "discover" :> Get '[JSON] [Models.Plant]
+type DiscoverAPI = "discover" :> Get '[JSON] [OnlinePlant]
 
 type AppApi =
   -- TODO: scope these under 'plant'?
@@ -88,6 +89,14 @@ newtype LabelReq = LabelReq
 
 instance FromForm LabelReq
 instance FromJSON LabelReq
+
+data OnlinePlant = OnlinePlant
+  { plant :: Models.Plant
+  , online :: Bool
+  }
+  deriving stock (Eq, Show, Generic)
+
+instance ToJSON OnlinePlant
 
 snakeCaseJson :: Options
 snakeCaseJson =

@@ -6,9 +6,10 @@ import Api
 import Commands (Commander, runCommand)
 import Config (Topics (Topics, responseTopic))
 import Control.Concurrent (Chan)
+import Data.Set qualified as Set
 import Database (findPlant, labelPlant, listPlants)
 import Database.Persist.Sql (ConnectionPool)
-import Models (Plant)
+import Models (Plant (Plant, plantName))
 import Network.MQTT.Client (MQTTClient, QoS (QoS1), SubOptions (_subQoS), subOptions, subscribe)
 import Network.Wai.Middleware.Cors (simpleCors)
 import Paths_plantrs (getDataDir)
@@ -22,8 +23,14 @@ addHandler :: Commander -> Text -> AddReq -> Handler Text
 addHandler commander plant AddReq {a, b} = do
   liftIO $ commander plant $ Add a b
 
-discoverHandler :: ConnectionPool -> MVar (Set Text) -> Handler [Plant]
-discoverHandler db _online = listPlants db
+discoverHandler :: ConnectionPool -> MVar (Set Text) -> Handler [OnlinePlant]
+discoverHandler db onlineState = do
+  plants <- listPlants db
+  online <- readMVar onlineState
+  pure $ map (decorateOnline online) plants
+  where
+    isOnline online Plant {plantName} = Set.member plantName online
+    decorateOnline online plant = OnlinePlant {plant, online = isOnline online plant}
 
 infoHandler :: ConnectionPool -> Text -> Handler (Maybe Plant)
 infoHandler = findPlant
