@@ -5,17 +5,17 @@ module Commands (
 
 import Api (Command, Request (Request), Response (Response, body, correlate))
 import Config (Topics (Topics, requestTopic, responseTopic), toTopic)
-import Control.Concurrent (Chan, readChan)
+import Control.Concurrent (readChan, writeChan)
 import Control.Monad.Loops (untilJust)
 import Data.Aeson (decode, encode)
 import Data.Text qualified as Text
-import Network.MQTT.Client (MQTTClient, publish)
+import Discovery (Comms)
 import System.Random (randomIO)
 
 type Commander = Text -> Command -> IO Text
 
-runCommand :: Topics -> MQTTClient -> Chan LByteString -> Commander
-runCommand Topics {responseTopic, requestTopic} mc msgs plant cmd = do
+runCommand :: Topics -> Comms -> Commander
+runCommand Topics {responseTopic, requestTopic} (rx, tx) plant cmd = do
   -- prepare request
   nonce <- randomIO -- TODO: best way?
   let request = Request cmd responseTopic nonce
@@ -23,10 +23,10 @@ runCommand Topics {responseTopic, requestTopic} mc msgs plant cmd = do
   let encoded = encode request
   putLBSLn $ "sending request: " <> encoded
   -- send it
-  publish mc (toTopic topic) encoded False
+  writeChan tx (toTopic topic, encoded)
   -- wait for a response
   untilJust $ do
-    msg <- readChan msgs -- TODO: semantics of multiple consumers?
+    (_t, msg) <- readChan rx -- TODO: semantics of multiple consumers?
     putLBSLn $ "received message: " <> msg
     case decode msg of
       Nothing -> Nothing <$ putLBSLn ("could not parse: " <> msg)
