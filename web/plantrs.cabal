@@ -18,10 +18,7 @@ synopsis:           A template for Haskell projects using Nix
 -- bug-reports:
 
 data-dir:           ui
-data-files:
-  *.html
-  images/*.webp
-
+data-files:         images/*.webp
 extra-source-files:
   LICENSE
   README.md
@@ -90,6 +87,8 @@ common shared
     , aeson-casing
     , async
     , base               >=4.13.0.0 && <4.18.0.0.0
+    , blaze-html
+    , blaze-htmx
     , data-default
     , directory
     , filepath
@@ -106,6 +105,7 @@ common shared
     , random
     , relude             >=1.0
     , servant
+    , servant-blaze
     , servant-server
     , shower
     , time
@@ -130,5 +130,6 @@ executable plantrs
     Models
     Paths_plantrs
     Server
+    View
 
   autogen-modules: Paths_plantrs

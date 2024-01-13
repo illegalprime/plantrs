@@ -24,6 +24,7 @@ runCommand Topics {responseTopic, requestTopic} (rx, tx) plant cmd = do
   putLBSLn $ "sending request: " <> encoded
   -- send it
   writeChan tx (toTopic topic, encoded)
+  -- TODO add commands timeout
   -- wait for a response
   untilJust $ do
     (_t, msg) <- readChan rx -- TODO: semantics of multiple consumers?

@@ -14,6 +14,8 @@ import Data.Aeson (FromJSON, Options (..), SumEncoding (..), ToJSON (..), defaul
 import Data.Aeson.Casing (snakeCase)
 import Models qualified
 import Servant
+import Servant.HTML.Blaze (HTML)
+import Text.Blaze.Html5 (Html)
 import Web.FormUrlEncoded (FromForm)
 
 type Plant = Capture "plant" Text
@@ -35,6 +37,7 @@ type AppApi =
     :<|> Plant :> InfoAPI
     :<|> Plant :> LabelAPI
     :<|> DiscoverAPI
+    :<|> Get '[HTML] Html
     :<|> Raw
 
 appApi :: Proxy AppApi
