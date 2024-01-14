@@ -5,6 +5,7 @@ module Server (
 import Api
 import Commands (Commander)
 import Data.Set qualified as Set
+import Data.Time (getCurrentTime)
 import Database (findPlant, labelPlant, listPlants, schedulePlant)
 import Database.Persist.Sql (ConnectionPool)
 import Models (Plant (Plant, plantName))
@@ -37,7 +38,10 @@ scheduleHandler db cmd scheds name ScheduleReq {volume, cron} = do
   pass -- TODO: error codes if scheduling was successful (cron validation)
 
 indexHandler :: (MonadIO m) => m [OnlinePlant] -> m Html
-indexHandler = fmap View.index
+indexHandler getPlants = do
+  time <- liftIO getCurrentTime
+  plants <- getPlants
+  pure $ View.index plants time
 
 server :: FilePath -> ConnectionPool -> Commander -> Schedules -> MVar (Set Text) -> Server AppApi
 server static db cmd scheds clients =
