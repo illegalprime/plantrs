@@ -1,7 +1,7 @@
 module Database where
 
 import Database.Persist.Sql (ConnectionPool, Entity (entityVal), PersistQueryRead (exists, selectFirst), PersistQueryWrite (updateWhere), PersistStoreWrite (insert_), liftSqlPersistMPool, selectList, (=.), (==.))
-import Models (EntityField (PlantLabel, PlantName), Plant (Plant))
+import Models (EntityField (PlantLabel, PlantName, PlantWaterCron, PlantWaterVolume), Plant (Plant))
 
 -- Plants
 listPlants :: (MonadIO m) => ConnectionPool -> m [Plant]
@@ -18,4 +18,8 @@ labelPlant db name label = flip liftSqlPersistMPool db $ do
 
 newPlant :: (MonadIO m) => ConnectionPool -> Text -> m ()
 newPlant db name = flip liftSqlPersistMPool db $ do
-  unlessM (exists [PlantName ==. name]) (insert_ $ Plant name name)
+  unlessM (exists [PlantName ==. name]) (insert_ $ Plant name name 0 Nothing)
+
+schedulePlant :: (MonadIO m) => ConnectionPool -> Text -> Text -> Word32 -> m ()
+schedulePlant db name cron volume = flip liftSqlPersistMPool db $ do
+  updateWhere [PlantName ==. name] [PlantWaterVolume =. volume, PlantWaterCron =. Just cron]

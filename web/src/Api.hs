@@ -7,6 +7,7 @@ module Api (
   Response (..),
   AddReq (..),
   LabelReq (..),
+  ScheduleReq (..),
   OnlinePlant (..),
 ) where
 
@@ -28,6 +29,8 @@ type InfoAPI = "info" :> Get '[JSON] (Maybe Models.Plant)
 
 type LabelAPI = "label" :> ReqBody '[FormUrlEncoded, JSON] LabelReq :> Post '[JSON] ()
 
+type ScheduleAPI = "schedule" :> ReqBody '[FormUrlEncoded, JSON] ScheduleReq :> Post '[JSON] ()
+
 type DiscoverAPI = "discover" :> Get '[JSON] [OnlinePlant]
 
 type AppApi =
@@ -36,6 +39,7 @@ type AppApi =
     :<|> Plant :> AddAPI
     :<|> Plant :> InfoAPI
     :<|> Plant :> LabelAPI
+    :<|> Plant :> ScheduleAPI
     :<|> DiscoverAPI
     :<|> Get '[HTML] Html
     :<|> Raw
@@ -92,6 +96,15 @@ newtype LabelReq = LabelReq
 
 instance FromForm LabelReq
 instance FromJSON LabelReq
+
+data ScheduleReq = ScheduleReq
+  { volume :: Word32
+  , cron :: Text
+  }
+  deriving stock (Eq, Show, Generic)
+
+instance FromForm ScheduleReq
+instance FromJSON ScheduleReq
 
 data OnlinePlant = OnlinePlant
   { plant :: Models.Plant

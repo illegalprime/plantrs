@@ -89,6 +89,7 @@ common shared
     , base               >=4.13.0.0 && <4.18.0.0.0
     , blaze-html
     , blaze-htmx
+    , cron
     , data-default
     , directory
     , filepath
@@ -129,6 +130,7 @@ executable plantrs
     Discovery
     Models
     Paths_plantrs
+    Schedule
     Server
     View
 
