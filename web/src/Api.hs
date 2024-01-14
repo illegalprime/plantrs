@@ -9,6 +9,10 @@ module Api (
   LabelReq (..),
   ScheduleReq (..),
   OnlinePlant (..),
+  PlantStatuses,
+  StatusSummary (..),
+  ScheduleStatus (..),
+  HealthResponse,
 ) where
 
 import Data.Aeson (FromJSON, Options (..), SumEncoding (..), ToJSON (..), defaultOptions, genericToJSON)
@@ -33,6 +37,10 @@ type ScheduleAPI = "schedule" :> ReqBody '[FormUrlEncoded, JSON] ScheduleReq :> 
 
 type DiscoverAPI = "discover" :> Get '[JSON] [OnlinePlant]
 
+type WatchdogAPI = "health" :> UVerb 'GET '[JSON] HealthResponse
+
+type HealthResponse = '[WithStatus 200 PlantStatuses, WithStatus 500 PlantStatuses]
+
 type AppApi =
   -- TODO: scope these under 'plant'?
   Plant :> WaterAPI
@@ -41,6 +49,7 @@ type AppApi =
     :<|> Plant :> LabelAPI
     :<|> Plant :> ScheduleAPI
     :<|> DiscoverAPI
+    :<|> WatchdogAPI
     :<|> Get '[HTML] Html
     :<|> Raw
 
@@ -113,6 +122,25 @@ data OnlinePlant = OnlinePlant
   deriving stock (Eq, Show, Generic)
 
 instance ToJSON OnlinePlant
+
+type PlantStatuses = Map Text StatusSummary
+
+data StatusSummary = StatusSummary
+  { online :: Bool
+  , schedule :: ScheduleStatus
+  , error :: Bool
+  }
+  deriving stock (Eq, Show, Generic)
+
+instance ToJSON StatusSummary
+
+data ScheduleStatus
+  = None
+  | Errored
+  | Scheduled
+  deriving stock (Eq, Show, Generic)
+
+instance ToJSON ScheduleStatus
 
 snakeCaseJson :: Options
 snakeCaseJson =

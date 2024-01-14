@@ -4,6 +4,7 @@ module Server (
 
 import Api
 import Commands (Commander)
+import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Time (getCurrentTime)
 import Database (findPlant, labelPlant, listPlants, schedulePlant)
@@ -37,6 +38,34 @@ scheduleHandler db cmd scheds name ScheduleReq {volume, cron} = do
   _status <- liftIO $ forM mPlant $ reschedulePlant cmd scheds
   pass -- TODO: error codes if scheduling was successful (cron validation)
 
+watchdogHandler :: (MonadIO m) => Schedules -> m [OnlinePlant] -> m (Union HealthResponse)
+watchdogHandler schedules readPlants = do
+  -- TODO: error codes and check
+  -- TODO: lenses
+  -- TODO: rename schedule variants
+  plants <- readPlants
+  scheds <- readMVar schedules
+  let getName Plant {plantName} = plantName
+  let toStatus OnlinePlant {online, plant} =
+        let name = getName plant
+            schedStatus = toSchedStatus $ Map.lookup name scheds
+            errored = (schedStatus == Errored) || (schedStatus == Scheduled && not online)
+         in ( name
+            , StatusSummary online schedStatus errored
+            )
+  let statuses = map toStatus plants
+  -- TODO: lens
+  let anyError = any (\(_, StatusSummary {error = err}) -> err) statuses
+  let summary = Map.fromList statuses
+  if anyError
+    then respond $ WithStatus @500 summary
+    else respond $ WithStatus @200 summary
+  where
+    toSchedStatus :: Maybe (Maybe a) -> ScheduleStatus
+    toSchedStatus Nothing = None
+    toSchedStatus (Just Nothing) = Errored
+    toSchedStatus (Just (Just _)) = Scheduled
+
 indexHandler :: (MonadIO m) => m [OnlinePlant] -> m Html
 indexHandler getPlants = do
   time <- liftIO getCurrentTime
@@ -51,6 +80,7 @@ server static db cmd scheds clients =
     :<|> labelHandler db
     :<|> scheduleHandler db cmd scheds
     :<|> readPlants
+    :<|> watchdogHandler scheds readPlants
     :<|> indexHandler readPlants
     :<|> serveDirectoryWebApp static
   where
