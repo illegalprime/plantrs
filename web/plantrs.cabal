@@ -7,9 +7,8 @@ author:             Michael Eden
 category:           Web
 homepage:           https://github.com/illegalprime/plantrs
 
--- TODO: Before hackage release.
 -- A short (one-line) description of the package.
-synopsis:           A template for Haskell projects using Nix
+synopsis:           web server and scheduler for plant watering
 
 -- A longer description of the package.
 -- description:
