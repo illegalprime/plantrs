@@ -5,6 +5,7 @@ module Server (
 import Api qualified as A
 import Commands (Command (Add, Drive), Commander)
 import Control.Lens (Field2 (_2), (^.))
+import Control.Lens.Extras (is)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Time (getCurrentTime)
@@ -45,9 +46,9 @@ watchdogHandler schedules readPlants = do
   scheds <- readMVar schedules
   let toStatus oPlant =
         let pName = oPlant ^. A.plant . M.name
-            schedStatus = toSchedStatus $ Map.lookup pName scheds
+            schedStatus = fromMaybe A.ScheduleError $ Map.lookup pName scheds
             schedError = schedStatus == A.ScheduleError
-            offlineErr = schedStatus == A.Scheduled && not (oPlant ^. A.online)
+            offlineErr = is A._Scheduled schedStatus && not (oPlant ^. A.online)
          in (pName, A.StatusSummary (oPlant ^. A.online) schedStatus (schedError || offlineErr))
       statuses = map toStatus plants
       anyError = any (^. (_2 . A.error)) statuses
@@ -55,11 +56,6 @@ watchdogHandler schedules readPlants = do
   if anyError
     then respond $ WithStatus @500 summary
     else respond $ WithStatus @200 summary
-  where
-    toSchedStatus :: Maybe (Maybe a) -> A.ScheduleStatus -- TODO: simplify
-    toSchedStatus Nothing = A.NoSchedule
-    toSchedStatus (Just Nothing) = A.ScheduleError
-    toSchedStatus (Just (Just _)) = A.Scheduled
 
 indexHandler :: (MonadIO m) => m [A.OnlinePlant] -> m Html
 indexHandler getPlants = do

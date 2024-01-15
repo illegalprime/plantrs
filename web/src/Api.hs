@@ -1,6 +1,7 @@
 module Api where
 
-import Control.Lens (makeFieldsNoPrefix)
+import Control.Concurrent (ThreadId)
+import Control.Lens (makeClassyPrisms, makeFieldsNoPrefix)
 import Data.Aeson (FromJSON, ToJSON (..))
 import Models qualified
 import Servant
@@ -88,13 +89,17 @@ instance ToJSON StatusSummary
 data ScheduleStatus
   = NoSchedule
   | ScheduleError
-  | Scheduled -- TODO: add threadid and put it in scheduler type?
+  | Scheduled ThreadId
   deriving stock (Eq, Show, Generic)
 
-instance ToJSON ScheduleStatus
+instance ToJSON ScheduleStatus where
+  toJSON NoSchedule = "none"
+  toJSON ScheduleError = "error"
+  toJSON (Scheduled _) = "scheduled"
 
 makeFieldsNoPrefix ''AddReq
 makeFieldsNoPrefix ''LabelReq
 makeFieldsNoPrefix ''ScheduleReq
 makeFieldsNoPrefix ''OnlinePlant
 makeFieldsNoPrefix ''StatusSummary
+makeClassyPrisms ''ScheduleStatus
