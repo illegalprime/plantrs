@@ -3,9 +3,10 @@
 {-# HLINT ignore "Use infinitely" #-}
 module Discovery where
 
-import Config (Topics (Topics, discoverTopic, goodbyeTopic, helloTopic, responseTopic), toTopic)
+import Config (HasDiscover (discover), HasGoodbye (goodbye), HasHello (hello), HasResponse (response), Topics, toTopic)
 import Control.Concurrent (Chan, modifyMVar_, readChan, threadDelay, writeChan)
 import Control.Exception (Handler (Handler), IOException, catches, throwIO)
+import Control.Lens ((^.))
 import Data.Set qualified as Set
 import Database (newPlant)
 import Database.Persist.Sql (ConnectionPool)
@@ -58,26 +59,25 @@ foldOnline db onlineStatus online = forever $ do
 
 initDiscover :: Topics -> MQTTClient -> IO ()
 initDiscover topics mc = do
-  let Topics {discoverTopic, helloTopic, goodbyeTopic, responseTopic} = topics
   -- subscribe to discovery topic
   print
     =<< subscribe
       mc
-      [ (toFilter (toTopic helloTopic), subOptions {_subQoS = QoS1})
-      , (toFilter (toTopic goodbyeTopic), subOptions {_subQoS = QoS1})
-      , (toFilter (toTopic responseTopic), subOptions {_subQoS = QoS1})
+      [ (toFilter (toTopic $ topics ^. hello), subOptions {_subQoS = QoS1})
+      , (toFilter (toTopic $ topics ^. goodbye), subOptions {_subQoS = QoS1})
+      , (toFilter (toTopic $ topics ^. response), subOptions {_subQoS = QoS1})
       ]
       []
   -- send initial request for clients
-  publish mc (toTopic discoverTopic) "ping" False
+  publish mc (toTopic $ topics ^. discover) "ping" False
 
 mqttHandler :: Topics -> MqttChan -> NotifyOnline -> MessageCallback
-mqttHandler Topics {helloTopic, goodbyeTopic} tx online =
+mqttHandler topics tx online =
   SimpleCallback handler
   where
     handler _ topic message _ = case topic of
-      t | t == toTopic helloTopic -> writeChan online (msg, Online)
-      t | t == toTopic goodbyeTopic -> writeChan online (msg, Offline)
+      t | t == toTopic (topics ^. hello) -> writeChan online (msg, Online)
+      t | t == toTopic (topics ^. goodbye) -> writeChan online (msg, Offline)
       t -> writeChan tx (t, message)
       where
         msg = decodeUtf8 message

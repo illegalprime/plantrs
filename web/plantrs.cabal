@@ -54,6 +54,7 @@ common shared
     ExplicitForAll
     FlexibleContexts
     FlexibleInstances
+    FunctionalDependencies
     GADTSyntax
     GADTs
     GeneralisedNewtypeDeriving
@@ -94,6 +95,7 @@ common shared
     , directory
     , filepath
     , http-api-data
+    , lens
     , monad-logger
     , monad-loops
     , mtl

@@ -1,20 +1,15 @@
-module Config (
-  Configuration (..),
-  Topics (..),
-  Database (..),
-  toTopic,
-  defaultConfig,
-) where
+module Config where
 
+import Control.Lens (makeFieldsNoPrefix)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Default (Default (def))
 import Network.MQTT.Client (Topic)
 
 data Configuration = Configuration
-  { port :: Int
-  , mqtt :: Text
-  , db :: Database
-  , topics :: Topics
+  { _port :: Int
+  , _mqtt :: Text
+  , _db :: Database
+  , _topics :: Topics
   }
   deriving stock (Show, Eq, Generic)
 instance FromJSON Configuration
@@ -23,10 +18,10 @@ instance ToJSON Configuration
 instance Default Configuration where
   def =
     Configuration
-      { port = 8080
-      , mqtt = "mqtt://127.0.0.1"
-      , db = Sqlite "db.sqlite"
-      , topics = def
+      { _port = 8080
+      , _mqtt = "mqtt://127.0.0.1"
+      , _db = Sqlite "db.sqlite"
+      , _topics = def
       }
 
 newtype Database = Sqlite Text
@@ -35,11 +30,11 @@ instance FromJSON Database
 instance ToJSON Database
 
 data Topics = Topics
-  { helloTopic :: Text
-  , goodbyeTopic :: Text
-  , discoverTopic :: Text
-  , responseTopic :: Text
-  , requestTopic :: Text
+  { _hello :: Text
+  , _goodbye :: Text
+  , _discover :: Text
+  , _response :: Text
+  , _request :: Text
   }
   deriving stock (Show, Eq, Generic)
 instance FromJSON Topics
@@ -48,12 +43,15 @@ instance ToJSON Topics
 instance Default Topics where
   def =
     Topics
-      { helloTopic = "plantrs/hello"
-      , goodbyeTopic = "plantrs/goodbye"
-      , discoverTopic = "plantrs/discover"
-      , responseTopic = "plantrs/responses"
-      , requestTopic = "plantrs/request"
+      { _hello = "plantrs/hello"
+      , _goodbye = "plantrs/goodbye"
+      , _discover = "plantrs/discover"
+      , _response = "plantrs/responses"
+      , _request = "plantrs/request"
       }
+
+makeFieldsNoPrefix ''Configuration
+makeFieldsNoPrefix ''Topics
 
 toTopic :: Text -> Topic
 toTopic = fromString . toString

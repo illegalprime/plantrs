@@ -1,36 +1,36 @@
 module Schedule where
 
-import Api (Command (Drive))
-import Commands (Commander)
+import Commands (Command (Drive), Commander)
 import Control.Concurrent (ThreadId, killThread)
+import Control.Lens ((^.))
 import Data.Map.Strict qualified as Map
-import Models (Plant (Plant, plantName, plantWaterCron, plantWaterVolume))
+import Models (Plant, name, waterCron, waterVolume)
 import System.Cron (MonadSchedule (addJob), execSchedule)
 
 type Schedules = MVar (Map Text (Maybe ThreadId))
 
 schedulePlant :: Commander -> Plant -> IO (Maybe (Text, Maybe ThreadId))
-schedulePlant _cmd Plant {plantWaterCron = Nothing} = pure Nothing
-schedulePlant cmds Plant {plantWaterCron = Just cron, plantName, plantWaterVolume} = do
+schedulePlant _cmd plant | isNothing $ plant ^. waterCron = pure Nothing
+schedulePlant cmds plant = do
   -- build watering command
-  let waterCmd = cmds plantName (Drive plantWaterVolume) >> pass -- TODO: signal error
+  let waterCmd = cmds (plant ^. name) (Drive $ plant ^. waterVolume) >> pass -- TODO: signal error
   -- possibly fails to schedule (parse cron)
-  mTid <- viaNonEmpty head <$> execSchedule (forM_ [cron] (addJob waterCmd))
+  mTid <- viaNonEmpty head <$> execSchedule (forM_ (plant ^. waterCron) (addJob waterCmd))
   -- we return the thread id and name pair
-  pure $ Just (plantName, mTid)
+  pure $ Just (plant ^. name, mTid)
 
 schedulePlants :: Commander -> [Plant] -> IO Schedules
 schedulePlants cmd plants = (newMVar . fromList) =<< mapMaybeM (schedulePlant cmd) plants
 
 reschedulePlant :: Commander -> Schedules -> Plant -> IO (Maybe ())
-reschedulePlant cmds scheds plant@Plant {plantName} = do
+reschedulePlant cmds scheds plant = do
   -- take out current state
   schedules <- readMVar scheds
   -- possibly kill existing thread
-  forM_ (join . Map.lookup plantName $ schedules) killThread
+  forM_ (join . Map.lookup (plant ^. name) $ schedules) killThread
   -- reschedule it
   schedRes <- join <$> (snd <<$>> schedulePlant cmds plant)
   -- update the schedules state
-  putMVar scheds $ Map.insert plantName schedRes schedules
+  putMVar scheds $ Map.insert (plant ^. name) schedRes schedules
   -- report success
   pure $ void schedRes

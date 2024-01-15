@@ -3,6 +3,7 @@ module Main where
 import Commands (runCommand)
 import Config
 import Control.Concurrent (forkIO, newChan)
+import Control.Lens ((^.))
 import Control.Monad.Logger (runStderrLoggingT)
 import Data.Maybe (fromJust)
 import Data.Set qualified as Set
@@ -21,9 +22,9 @@ import Text.Printf (printf)
 main :: IO ()
 main = do
   -- load configuration file
-  Configuration {port, mqtt, topics, db} <- loadYamlSettingsArgs [toJSON defaultConfig] useEnv
+  cfg <- loadYamlSettingsArgs [toJSON defaultConfig] useEnv :: IO Configuration
   -- load database
-  pool <- runStderrLoggingT $ case db of
+  pool <- runStderrLoggingT $ case cfg ^. db of
     Sqlite path -> createSqlitePool path 5
   -- run migrations
   runSqlPool (runMigration migrateAll) pool
@@ -36,11 +37,11 @@ main = do
   -- online aggregate status
   onlineStatus <- newMVar Set.empty
   -- set up command handler
-  let commander = runCommand topics (rx, tx)
+  let commander = runCommand (cfg ^. topics) (rx, tx)
   -- broker uri
-  let uri = fromJust $ parseURI $ toString mqtt
+  let uri = fromJust $ parseURI $ toString (cfg ^. mqtt)
   -- start broker service
-  _ <- forkIO $ runMqtt uri topics (rx, tx) online
+  _ <- forkIO $ runMqtt uri (cfg ^. topics) (rx, tx) online
   -- match up online clients with the db
   _ <- forkIO $ foldOnline pool onlineStatus online
   -- schedule crons
@@ -48,5 +49,5 @@ main = do
   -- build web app
   api <- app pool commander schedules onlineStatus
   -- spawn webserver on port
-  putStrLn $ printf "Running server on port %d..." port
-  run port api
+  putStrLn $ printf "Running server on port %d..." (cfg ^. port)
+  run (cfg ^. port) api

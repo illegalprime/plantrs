@@ -3,7 +3,7 @@ module Models where
 import Database.Persist.TH
 
 share
-  [mkPersist sqlSettings, mkMigrate "migrateAll"]
+  [mkPersist sqlSettings {mpsGenerateLenses = True, mpsPrefixFields = False}, mkMigrate "migrateAll"]
   [persistLowerCase|
 Plant json
     name Text

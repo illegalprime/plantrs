@@ -1,8 +1,9 @@
 module View where
 
-import Api (OnlinePlant (OnlinePlant, online, plant))
+import Api (HasOnline (online), HasPlant (plant), OnlinePlant)
+import Control.Lens ((^.))
 import Data.Time (UTCTime, defaultTimeLocale, formatTime)
-import Models (Plant (Plant, plantLabel, plantName, plantWaterCron, plantWaterVolume))
+import Models (name, waterCron, waterVolume)
 import System.Cron (nextMatch, parseCronSchedule)
 import Text.Blaze.Html5 (Html, (!))
 import Text.Blaze.Html5 qualified as H
@@ -23,21 +24,20 @@ plantCards plants now = do
         forM_ plants (plantCard now)
 
 plantCard :: UTCTime -> OnlinePlant -> Html
-plantCard now OnlinePlant {online, plant} = do
-  let Plant {plantLabel, plantName, plantWaterVolume, plantWaterCron} = plant
+plantCard now oPlant = do
   -- TODO: add ui success/failure feedback & timeout
-  let waterReq = X.hxPost $ fromString $ printf "/%s/water?t=5" plantName
+  let waterReq = X.hxPost $ fromString $ printf "/%s/water?t=5" $ oPlant ^. plant . name
   H.div ! A.class_ "column is-one-third" $ do
     H.div ! A.class_ "card" $ do
       plantImage
       H.div ! A.class_ "card-content" $ do
         H.div ! A.class_ "content" $ do
-          H.h2 (H.toHtml plantLabel)
+          H.h2 $ H.toHtml $ oPlant ^. plant . name
           H.div ! A.class_ "block is-vcentered" $ do
-            onlineIndicator online
-            case plantWaterCron of
+            onlineIndicator (oPlant ^. online)
+            case oPlant ^. plant . waterCron of
               Nothing -> H.p $ H.i "no water schedule"
-              Just cron -> displaySmallSchedule now cron plantWaterVolume
+              Just cron -> displaySmallSchedule now cron $ oPlant ^. plant . waterVolume
           H.div ! A.class_ "block has-text-right" $ do
             H.button ! A.class_ "button" ! X.hxTrigger "click" ! X.hxSwap "none" ! waterReq $ do
               "Water Now"
