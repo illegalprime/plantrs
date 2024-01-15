@@ -19,7 +19,9 @@ type InfoAPI = "info" :> Get '[JSON] (Maybe Models.Plant)
 
 type LabelAPI = "label" :> ReqBody '[FormUrlEncoded, JSON] LabelReq :> Post '[JSON] ()
 
-type ScheduleAPI = "schedule" :> ReqBody '[FormUrlEncoded, JSON] ScheduleReq :> Post '[JSON] ()
+type ScheduleAPI = "schedule" :> ReqBody '[FormUrlEncoded, JSON] ScheduleReq :> UVerb 'POST '[JSON] ScheduleResponse
+
+type ScheduleResponse = '[WithStatus 200 (), WithStatus 400 Text, WithStatus 404 ()]
 
 type DiscoverAPI = "discover" :> Get '[JSON] [OnlinePlant]
 

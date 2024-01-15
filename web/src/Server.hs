@@ -16,6 +16,7 @@ import Network.Wai.Middleware.Cors (simpleCors)
 import Paths_plantrs (getDataDir)
 import Schedule (Schedules, reschedulePlant)
 import Servant
+import System.Cron (parseCronSchedule)
 import Text.Blaze.Html5 (Html)
 import View qualified
 
@@ -33,12 +34,19 @@ infoHandler = findPlant
 labelHandler :: ConnectionPool -> Text -> A.LabelReq -> Handler ()
 labelHandler db plant req = labelPlant db plant (req ^. A.label)
 
-scheduleHandler :: ConnectionPool -> Commander -> Schedules -> Text -> A.ScheduleReq -> Handler ()
+scheduleHandler :: ConnectionPool -> Commander -> Schedules -> Text -> A.ScheduleReq -> Handler (Union A.ScheduleResponse)
+scheduleHandler _ _ _ _ req
+  | Left err <- parseCronSchedule (req ^. A.cron) =
+      respond $ WithStatus @400 (toText err)
 scheduleHandler db cmd scheds name req = do
   schedulePlant db name (req ^. A.cron) (req ^. A.volume)
   mPlant <- findPlant db name
-  _status <- liftIO $ forM mPlant $ reschedulePlant cmd scheds
-  pass -- TODO: error codes if scheduling was successful (cron validation)
+  status <- liftIO $ forM mPlant $ reschedulePlant cmd scheds
+  case status of
+    Nothing -> respond $ WithStatus @404 () -- no plant
+    Just (A.Scheduled _) -> respond $ WithStatus @200 () -- success
+    Just A.ScheduleError -> respond $ WithStatus @400 ("schedule error" :: Text)
+    Just A.NoSchedule -> respond $ WithStatus @400 ("failed to update" :: Text)
 
 watchdogHandler :: (MonadIO m) => Schedules -> m [A.OnlinePlant] -> m (Union A.HealthResponse)
 watchdogHandler schedules readPlants = do
