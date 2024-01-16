@@ -31,7 +31,7 @@ runMqtt uri topics (tx, rx) online = do
       , Handler (\(ex :: IOException) -> catcher (show ex))
       ]
   where
-    catcher e = putStrLn ("ERROR: " <> e) >> threadDelay 1000000 -- TODO: decay timeout
+    catcher e = putStrLn ("ERROR: " <> e) >> threadDelay 1000000
     requeueMsg chan msg (ex :: MQTTException) = do
       writeChan chan msg
       throwIO ex
