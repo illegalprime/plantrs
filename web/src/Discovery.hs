@@ -3,6 +3,8 @@
 {-# HLINT ignore "Use infinitely" #-}
 module Discovery where
 
+import BroadcastChan (BroadcastChan, In)
+import BroadcastChan.Throw (writeBChan)
 import Config (HasDiscover (discover), HasGoodbye (goodbye), HasHello (hello), HasResponse (response), Topics, toTopic)
 import Control.Concurrent (Chan, modifyMVar_, readChan, threadDelay, writeChan)
 import Control.Exception (Handler (Handler), IOException, catches, throwIO)
@@ -14,8 +16,8 @@ import Network.MQTT.Client (MQTTClient, MQTTConfig (_msgCB), MQTTException, Mess
 import Network.MQTT.Topic (toFilter)
 import Network.URI (URI)
 
-type MqttChan = Chan (Topic, LByteString)
-type Comms = (MqttChan, MqttChan)
+type MqttMsg = (Topic, LByteString)
+type Comms = (BroadcastChan In MqttMsg, Chan MqttMsg)
 type NotifyOnline = Chan (Text, OnlineStatus)
 data OnlineStatus = Online | Offline
 
@@ -71,13 +73,13 @@ initDiscover topics mc = do
   -- send initial request for clients
   publish mc (toTopic $ topics ^. discover) "ping" False
 
-mqttHandler :: Topics -> MqttChan -> NotifyOnline -> MessageCallback
+mqttHandler :: Topics -> BroadcastChan In MqttMsg -> NotifyOnline -> MessageCallback
 mqttHandler topics tx online =
   SimpleCallback handler
   where
     handler _ topic message _ = case topic of
       t | t == toTopic (topics ^. hello) -> writeChan online (msg, Online)
       t | t == toTopic (topics ^. goodbye) -> writeChan online (msg, Offline)
-      t -> writeChan tx (t, message)
+      t -> writeBChan tx (t, message)
       where
         msg = decodeUtf8 message

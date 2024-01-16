@@ -89,6 +89,7 @@ common shared
     , base               >=4.13.0.0 && <4.18.0.0.0
     , blaze-html
     , blaze-htmx
+    , broadcast-chan
     , cron
     , data-default
     , directory
