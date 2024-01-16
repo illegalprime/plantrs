@@ -9,9 +9,17 @@ import Servant.HTML.Blaze (HTML)
 import Text.Blaze.Html5 (Html)
 import Web.FormUrlEncoded (FromForm)
 
+-- Helpers
+
+type Htmx route = Header "HX-Request" Text :> route HTML HtmxResponse
+
+type Json route reply = route JSON reply
+
 type CapturePlant = Capture "plant" Text
 
-type WaterAPI = "water" :> QueryParam "t" Word32 :> Post '[JSON] Text
+-- Routes
+
+type WaterAPI mime reply = "water" :> QueryParam "t" Word32 :> Post '[mime] reply
 
 type AddAPI = "add" :> ReqBody '[FormUrlEncoded, JSON] AddReq :> Post '[JSON] Text
 
@@ -19,24 +27,31 @@ type InfoAPI = "info" :> Get '[JSON] (Maybe Models.Plant)
 
 type LabelAPI = "label" :> ReqBody '[FormUrlEncoded, JSON] LabelReq :> Post '[JSON] ()
 
-type ScheduleAPI = "schedule" :> ReqBody '[FormUrlEncoded, JSON] ScheduleReq :> UVerb 'POST '[JSON] ScheduleResponse
-
-type ScheduleResponse = '[WithStatus 200 (), WithStatus 400 Text, WithStatus 404 ()]
+type ScheduleAPI = "schedule" :> (ReqBody '[FormUrlEncoded, JSON] ScheduleReq :> UVerb 'POST '[JSON] ScheduleResponse)
 
 type DiscoverAPI = "discover" :> Get '[JSON] [OnlinePlant]
 
 type WatchdogAPI = "health" :> UVerb 'GET '[JSON] HealthResponse
 
+-- Responses
+
+type HtmxResponse = Headers '[Header "HX-Retarget" Text, Header "HX-Reswap" Text] Html
+
+type ScheduleResponse = '[WithStatus 200 (), WithStatus 400 Text, WithStatus 404 ()]
+
 type HealthResponse = '[WithStatus 200 PlantStatuses, WithStatus 500 PlantStatuses]
 
+-- Aggregated API
+
 type AppApi =
-  CapturePlant :> WaterAPI
+  WatchdogAPI
+    :<|> CapturePlant :> Htmx WaterAPI
+    :<|> CapturePlant :> Json WaterAPI ()
     :<|> CapturePlant :> AddAPI
     :<|> CapturePlant :> InfoAPI
     :<|> CapturePlant :> LabelAPI
     :<|> CapturePlant :> ScheduleAPI
     :<|> DiscoverAPI
-    :<|> WatchdogAPI
     :<|> Get '[HTML] Html
     :<|> Raw
 

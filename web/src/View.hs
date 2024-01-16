@@ -12,10 +12,14 @@ import Text.Blaze.Html5.Attributes qualified as A
 import Text.Blaze.Htmx qualified as X
 import Text.Printf (printf)
 
+toastId :: String
+toastId = "toaster"
+
 index :: [OnlinePlant] -> UTCTime -> Html
 index plants now = page $ do
   title
   plantCards plants now
+  H.div ! A.id (fromString toastId) ! X.hxExt "remove-me" $ ""
 
 plantCards :: [OnlinePlant] -> UTCTime -> Html
 plantCards plants now = do
@@ -26,7 +30,6 @@ plantCards plants now = do
 
 plantCard :: UTCTime -> OnlinePlant -> Html
 plantCard now oPlant = do
-  -- TODO: add ui success/failure feedback & timeout
   let waterReq = X.hxPost $ fromString $ printf "/%s/water?t=5" $ oPlant ^. plant . name
   H.div ! A.class_ "column is-one-third" $ do
     H.div ! A.class_ "card" $ do
@@ -98,6 +101,9 @@ header = do
       ! A.src "https://unpkg.com/htmx.org@1.9.10"
       $ ""
     H.script
+      ! A.src "https://unpkg.com/htmx.org@1.9.10/dist/ext/remove-me.js"
+      $ ""
+    H.script
       ! A.src "https://kit.fontawesome.com/4abb0f2a3e.js"
       $ ""
 
@@ -114,3 +120,14 @@ page content = do
   H.docTypeHtml $ do
     header
     H.body content
+
+toast :: Bool -> Text -> Html
+toast isError text = do
+  H.div
+    ! A.class_ ("notification " <> colorErr isError)
+    ! A.customAttribute "remove-me" "3s"
+    $ do
+      H.b $ H.toHtml text
+  where
+    colorErr True = "is-danger"
+    colorErr False = "is-success"

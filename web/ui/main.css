@@ -9,3 +9,32 @@
 .spinner.htmx-request~.spinner-hide {
     display: none;
 }
+
+#toaster {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+@keyframes fadeout {
+    0% {
+        visibility: visible;
+        opacity: 1;
+    }
+
+    100% {
+        visibility: hidden;
+        opacity: 0;
+    }
+}
+
+#toaster .notification {
+    max-width: 400px;
+    animation: 1s ease-out 2s 1 fadeout;
+    animation-fill-mode: forwards;
+    padding: 1.25rem;
+}

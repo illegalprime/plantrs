@@ -11,6 +11,7 @@ import Data.Set qualified as Set
 import Data.Time (getCurrentTime)
 import Database (findPlant, labelPlant, listPlants, schedulePlant)
 import Database.Persist.Sql (ConnectionPool)
+import GHC.IO (catchAny)
 import Models qualified as M
 import Network.Wai.Middleware.Cors (simpleCors)
 import Paths_plantrs (getDataDir)
@@ -20,9 +21,15 @@ import System.Cron (parseCronSchedule)
 import Text.Blaze.Html5 (Html)
 import View qualified
 
-waterHandler :: Commander -> Text -> Maybe Word32 -> Handler Text
+waterHandler :: (MonadIO m) => Commander -> Text -> Maybe Word32 -> m ()
 waterHandler commander plant secs = do
-  liftIO $ commander plant $ Drive $ fromMaybe 0 secs
+  liftIO $ void $ commander plant $ Drive $ fromMaybe 0 secs
+
+htmxWaterHandler :: Commander -> Text -> Maybe Text -> Maybe Word32 -> Handler A.HtmxResponse
+htmxWaterHandler commander plant _header secs =
+  toastHtmx
+    ((False, "Success.") <$ waterHandler commander plant secs)
+    (\e -> pure (True, "Failure: " <> show e))
 
 addHandler :: Commander -> Text -> A.AddReq -> Handler Text
 addHandler commander plant addReq = do
@@ -73,13 +80,14 @@ indexHandler getPlants = do
 
 server :: FilePath -> ConnectionPool -> Commander -> Schedules -> MVar (Set Text) -> Server A.AppApi
 server static db cmd scheds clients =
-  waterHandler cmd
+  watchdogHandler scheds readPlants
+    :<|> htmxWaterHandler cmd
+    :<|> waterHandler cmd
     :<|> addHandler cmd
     :<|> infoHandler db
     :<|> labelHandler db
     :<|> scheduleHandler db cmd scheds
     :<|> readPlants
-    :<|> watchdogHandler scheds readPlants
     :<|> indexHandler readPlants
     :<|> serveDirectoryWebApp static
   where
@@ -99,3 +107,11 @@ allPlants db onlineState = do
   pure $ map (decorateOnline online) plants
   where
     decorateOnline online plant = A.OnlinePlant plant $ Set.member (plant ^. M.name) online
+
+toastHtmx :: IO (Bool, Text) -> (forall e. (Exception e) => e -> IO (Bool, Text)) -> Handler A.HtmxResponse
+toastHtmx action handler = do
+  (isErr, result) <- liftIO $ catchAny action handler
+  pure $
+    addHeader (toText $ "#" <> View.toastId) $
+      addHeader "beforeend" $
+        View.toast isErr result
