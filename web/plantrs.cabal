@@ -17,7 +17,10 @@ synopsis:           web server and scheduler for plant watering
 -- bug-reports:
 
 data-dir:           ui
-data-files:         images/*.webp
+data-files:
+  *.css
+  images/*.webp
+
 extra-source-files:
   LICENSE
   README.md

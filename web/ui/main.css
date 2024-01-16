@@ -1,0 +1,11 @@
+.spinner {
+    display: none;
+}
+
+.spinner.htmx-request {
+    display: inline;
+}
+
+.spinner.htmx-request~.spinner-hide {
+    display: none;
+}

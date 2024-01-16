@@ -5,6 +5,7 @@ import Control.Lens ((^.))
 import Data.Time (UTCTime, defaultTimeLocale, formatTime)
 import Models (name, waterCron, waterVolume)
 import System.Cron (nextMatch, parseCronSchedule)
+import Text.Blaze.Html qualified as A
 import Text.Blaze.Html5 (Html, (!))
 import Text.Blaze.Html5 qualified as H
 import Text.Blaze.Html5.Attributes qualified as A
@@ -39,9 +40,20 @@ plantCard now oPlant = do
               Nothing -> H.p $ H.i "no water schedule"
               Just cron -> displaySmallSchedule now cron $ oPlant ^. plant . waterVolume
           H.div ! A.class_ "block has-text-right" $ do
-            H.button ! A.class_ "button" ! X.hxTrigger "click" ! X.hxSwap "none" ! waterReq $ do
-              "Water Now"
-              H.i ! A.class_ "ml-3 fa-solid fa-droplet" $ ""
+            H.button
+              ! A.class_ "button"
+              ! X.hxTrigger "click"
+              ! A.customAttribute "hx-indicator" ".spinner"
+              ! A.customAttribute "hx-disabled-elt" "this"
+              ! X.hxSwap "none"
+              ! waterReq
+              $ do
+                H.p ! A.class_ "spinner mb-0" $ do
+                  "Working..."
+                  H.i ! A.class_ "ml-3 fa-solid fa-spinner fa-spin" $ ""
+                H.p ! A.class_ "spinner-hide" $ do
+                  "Water Now"
+                  H.i ! A.class_ "ml-3 fa-solid fa-droplet" $ ""
 
 onlineIndicator :: Bool -> Html
 onlineIndicator isOnline = H.p $ do
@@ -79,6 +91,9 @@ header = do
     H.link
       ! A.rel "stylesheet"
       ! A.href "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
+    H.link
+      ! A.rel "stylesheet"
+      ! A.href "/main.css"
     H.script
       ! A.src "https://unpkg.com/htmx.org@1.9.10"
       $ ""
