@@ -1,7 +1,8 @@
 module Config where
 
 import Control.Lens (makeFieldsNoPrefix)
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson (Options (fieldLabelModifier), defaultOptions)
+import Data.Aeson.TH (deriveJSON)
 import Data.Default (Default (def))
 import Network.MQTT.Client (Topic)
 
@@ -12,8 +13,6 @@ data Configuration = Configuration
   , _topics :: Topics
   }
   deriving stock (Show, Eq, Generic)
-instance FromJSON Configuration
-instance ToJSON Configuration
 
 instance Default Configuration where
   def =
@@ -26,8 +25,6 @@ instance Default Configuration where
 
 newtype Database = Sqlite Text
   deriving stock (Show, Eq, Generic)
-instance FromJSON Database
-instance ToJSON Database
 
 data Topics = Topics
   { _hello :: Text
@@ -37,8 +34,6 @@ data Topics = Topics
   , _request :: Text
   }
   deriving stock (Show, Eq, Generic)
-instance FromJSON Topics
-instance ToJSON Topics
 
 instance Default Topics where
   def =
@@ -58,3 +53,7 @@ toTopic = fromString . toString
 
 defaultConfig :: Configuration
 defaultConfig = def
+
+deriveJSON defaultOptions ''Database
+deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''Topics
+deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''Configuration

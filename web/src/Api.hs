@@ -2,7 +2,8 @@ module Api where
 
 import Control.Concurrent (ThreadId)
 import Control.Lens (makeClassyPrisms, makeFieldsNoPrefix)
-import Data.Aeson (FromJSON, ToJSON (..))
+import Data.Aeson (Options (fieldLabelModifier), ToJSON (..), defaultOptions)
+import Data.Aeson.TH (deriveJSON, deriveToJSON)
 import Models qualified
 import Servant
 import Servant.HTML.Blaze (HTML)
@@ -64,16 +65,10 @@ data AddReq = AddReq
   }
   deriving stock (Eq, Show, Generic)
 
-instance FromForm AddReq
-instance FromJSON AddReq
-
 newtype LabelReq = LabelReq
   { _label :: Text
   }
   deriving stock (Eq, Show, Generic)
-
-instance FromForm LabelReq
-instance FromJSON LabelReq
 
 data ScheduleReq = ScheduleReq
   { _volume :: Word32
@@ -81,16 +76,11 @@ data ScheduleReq = ScheduleReq
   }
   deriving stock (Eq, Show, Generic)
 
-instance FromForm ScheduleReq
-instance FromJSON ScheduleReq
-
 data OnlinePlant = OnlinePlant
   { _plant :: Models.Plant
   , _online :: Bool
   }
   deriving stock (Eq, Show, Generic)
-
-instance ToJSON OnlinePlant
 
 type PlantStatuses = Map Text StatusSummary
 
@@ -100,8 +90,6 @@ data StatusSummary = StatusSummary
   , _error :: Bool
   }
   deriving stock (Eq, Show, Generic)
-
-instance ToJSON StatusSummary
 
 data ScheduleStatus
   = NoSchedule
@@ -120,3 +108,13 @@ makeFieldsNoPrefix ''ScheduleReq
 makeFieldsNoPrefix ''OnlinePlant
 makeFieldsNoPrefix ''StatusSummary
 makeClassyPrisms ''ScheduleStatus
+
+instance FromForm AddReq
+instance FromForm LabelReq
+instance FromForm ScheduleReq
+
+deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''AddReq
+deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''LabelReq
+deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''ScheduleReq
+deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''OnlinePlant
+deriveToJSON defaultOptions {fieldLabelModifier = drop 1} ''StatusSummary
