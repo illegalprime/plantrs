@@ -2,7 +2,7 @@ module View where
 
 import Api (HasOnline (online), HasPlant (plant), OnlinePlant)
 import Control.Lens ((^.))
-import Data.Time (UTCTime, defaultTimeLocale, formatTime)
+import Data.Time (TimeZone, UTCTime, defaultTimeLocale, formatTime, utcToZonedTime)
 import Models (label, name, waterCron, waterVolume)
 import System.Cron (nextMatch, parseCronSchedule)
 import Text.Blaze.Html qualified as A
@@ -15,20 +15,20 @@ import Text.Printf (printf)
 toastId :: String
 toastId = "toaster"
 
-index :: [OnlinePlant] -> UTCTime -> Html
+index :: [OnlinePlant] -> (UTCTime, TimeZone) -> Html
 index plants now = page $ do
   title
   plantCards plants now
   H.div ! A.id (fromString toastId) ! X.hxExt "remove-me" $ ""
 
-plantCards :: [OnlinePlant] -> UTCTime -> Html
+plantCards :: [OnlinePlant] -> (UTCTime, TimeZone) -> Html
 plantCards plants now = do
   H.section ! A.class_ "section" $ do
     H.div ! A.class_ "container is-max-desktop" $ do
       H.div ! A.class_ "columns" $ do
         forM_ plants (plantCard now)
 
-plantCard :: UTCTime -> OnlinePlant -> Html
+plantCard :: (UTCTime, TimeZone) -> OnlinePlant -> Html
 plantCard now oPlant = do
   let waterReq = X.hxPost $ fromString $ printf "/%s/water?t=5" $ oPlant ^. plant . name
   H.div ! A.class_ "column is-one-third" $ do
@@ -68,8 +68,8 @@ onlineIndicator isOnline = H.p $ do
     style True = "color: #4adc4b;"
     style False = "color: #d94c50;"
 
-displaySmallSchedule :: UTCTime -> Text -> Word32 -> Html
-displaySmallSchedule now cron vol = case nextTime of
+displaySmallSchedule :: (UTCTime, TimeZone) -> Text -> Word32 -> Html
+displaySmallSchedule (now, zone) cron vol = case nextTime of
   Left err -> H.i $ H.toHtml err
   Right Nothing -> H.i "No upcoming watering."
   Right (Just next) -> H.p $ H.toHtml $ text $ fmtTime next
@@ -77,7 +77,7 @@ displaySmallSchedule now cron vol = case nextTime of
     text :: String -> String
     text = printf "Will water %dmL on %s" vol
     fmtTime = formatTime defaultTimeLocale "%b %e, %l:%M%P"
-    nextTime = second (`nextMatch` now) (parseCronSchedule cron)
+    nextTime = utcToZonedTime zone <<$>> second (`nextMatch` now) (parseCronSchedule cron)
 
 plantImage :: Html
 plantImage = do

@@ -9,7 +9,7 @@ import Control.Lens (Field2 (_2), (^.))
 import Control.Lens.Extras (is)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
-import Data.Time (UTCTime, diffUTCTime, getCurrentTime, nominalDiffTimeToSeconds)
+import Data.Time (UTCTime, diffUTCTime, getCurrentTime, getCurrentTimeZone, nominalDiffTimeToSeconds)
 import Database (findPlant, labelPlant, listPlants, schedulePlant)
 import Database.Persist.Sql (ConnectionPool)
 import GHC.IO (catchAny)
@@ -87,8 +87,9 @@ plantSummary scheds now oPlant =
 indexHandler :: (MonadIO m) => m [A.OnlinePlant] -> m Html
 indexHandler getPlants = do
   time <- liftIO getCurrentTime
+  zone <- liftIO getCurrentTimeZone
   plants <- getPlants
-  pure $ View.index plants time
+  pure $ View.index plants (time, zone)
 
 server :: FilePath -> ConnectionPool -> Commander -> Schedules -> MVar (Set Text) -> Server A.AppApi
 server static db cmd scheds clients =
