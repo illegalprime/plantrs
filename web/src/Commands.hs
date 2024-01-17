@@ -56,7 +56,7 @@ runCommand topics (getSubChan, tx) plant cmd = do
   let req = Request cmd (topics ^. response) nonce
   let topic = Text.intercalate "/" [topics ^. request, plant]
   let encoded = encode req
-  putLBSLn $ "sending request: " <> encoded
+  putTextLn $ unwords ["[tx;", topic, "]", decodeUtf8 encoded]
   -- grab a sub channel
   rx <- getSubChan
   -- send it
@@ -64,7 +64,7 @@ runCommand topics (getSubChan, tx) plant cmd = do
   -- wait for a response
   mResponse <- timeout 5000000 $ untilJust $ do
     (_t, msg) <- readBChan rx
-    putLBSLn $ "received message: " <> msg
+    putTextLn (unwords ["[rx;", topics ^. response, "]", decodeUtf8 msg])
     case decode msg :: Maybe Response of
       Nothing -> Nothing <$ putLBSLn ("could not parse: " <> msg)
       Just r | r ^. correlate == nonce -> pure $ Just $ r ^. body

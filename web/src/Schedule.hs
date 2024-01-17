@@ -19,11 +19,13 @@ schedulePlant db cmds plant@Plant {_waterCron = Just cron} = do
   let waterCmd =
         cmds (plant ^. name) (Drive $ plant ^. waterVolume)
           >> bumpPlant db (plant ^. name) cron
-          >>= print
+          >>= notifyWater
   -- possibly fails to schedule (parse cron)
   mTid <- viaNonEmpty head <$> execSchedule (forM_ (plant ^. waterCron) (addJob waterCmd))
   -- we return the thread id and name pair
   pure (plant ^. name, maybe ScheduleError Scheduled mTid)
+  where
+    notifyWater out = putTextLn $ unwords ["[water;", plant ^. name, "]", show out]
 
 schedulePlants :: ConnectionPool -> Commander -> [Plant] -> IO Schedules
 schedulePlants db cmd plants = (newMVar . fromList) =<< mapM (schedulePlant db cmd) plants
