@@ -3,7 +3,7 @@ module View where
 import Api (HasOnline (online), HasPlant (plant), OnlinePlant)
 import Control.Lens ((^.))
 import Data.Time (UTCTime, defaultTimeLocale, formatTime)
-import Models (name, waterCron, waterVolume)
+import Models (label, name, waterCron, waterVolume)
 import System.Cron (nextMatch, parseCronSchedule)
 import Text.Blaze.Html qualified as A
 import Text.Blaze.Html5 (Html, (!))
@@ -36,7 +36,7 @@ plantCard now oPlant = do
       plantImage
       H.div ! A.class_ "card-content" $ do
         H.div ! A.class_ "content" $ do
-          H.h2 $ H.toHtml $ oPlant ^. plant . name
+          H.h2 $ H.toHtml $ oPlant ^. plant . label
           H.div ! A.class_ "block is-vcentered" $ do
             onlineIndicator (oPlant ^. online)
             case oPlant ^. plant . waterCron of
