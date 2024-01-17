@@ -32,6 +32,6 @@ reschedulePlant cmds scheds plant = do
   -- reschedule it
   (_, schedRes) <- schedulePlant cmds plant
   -- update the schedules state
-  putMVar scheds $ Map.insert (plant ^. name) schedRes schedules
+  _ <- swapMVar scheds $ Map.insert (plant ^. name) schedRes schedules
   -- report success
   pure schedRes
