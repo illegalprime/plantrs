@@ -97,6 +97,7 @@ common shared
     , cron
     , data-default
     , directory
+    , exceptions
     , filepath
     , http-api-data
     , lens

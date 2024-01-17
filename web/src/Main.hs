@@ -8,7 +8,7 @@ import Control.Lens ((^.))
 import Control.Monad.Logger (runStderrLoggingT)
 import Data.Maybe (fromJust)
 import Data.Set qualified as Set
-import Data.Yaml (ToJSON (toJSON))
+import Data.Yaml (ToJSON (toJSON), encode)
 import Data.Yaml.Config (loadYamlSettingsArgs, useEnv)
 import Database (listPlants)
 import Database.Persist.Sqlite (createSqlitePool, runMigration, runSqlPool)
@@ -24,6 +24,8 @@ main :: IO ()
 main = do
   -- load configuration file
   cfg <- loadYamlSettingsArgs [toJSON defaultConfig] useEnv :: IO Configuration
+  -- print current configuration
+  putBSLn $ encode cfg
   -- load database
   pool <- runStderrLoggingT $ case cfg ^. db of
     Sqlite path -> createSqlitePool path 5
@@ -48,7 +50,7 @@ main = do
   -- match up online clients with the db
   _ <- forkIO $ foldOnline pool onlineStatus online
   -- schedule crons
-  schedules <- schedulePlants commander =<< listPlants pool
+  schedules <- schedulePlants pool commander =<< listPlants pool
   -- build web app
   api <- app pool commander schedules onlineStatus
   -- spawn webserver on port

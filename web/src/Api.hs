@@ -4,6 +4,7 @@ import Control.Concurrent (ThreadId)
 import Control.Lens (makeClassyPrisms, makeFieldsNoPrefix)
 import Data.Aeson (Options (fieldLabelModifier), ToJSON (..), defaultOptions)
 import Data.Aeson.TH (deriveJSON, deriveToJSON)
+import Data.Time (UTCTime)
 import Models qualified
 import Servant
 import Servant.HTML.Blaze (HTML)
@@ -86,7 +87,9 @@ type PlantStatuses = Map Text StatusSummary
 
 data StatusSummary = StatusSummary
   { _online :: Bool
-  , _schedule :: ScheduleStatus
+  , _schedule :: Maybe Text
+  , _scheduleStatus :: ScheduleStatus
+  , _nextWatering :: Maybe UTCTime
   , _error :: Bool
   }
   deriving stock (Eq, Show, Generic)

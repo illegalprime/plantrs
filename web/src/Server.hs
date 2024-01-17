@@ -2,13 +2,14 @@ module Server (
   app,
 ) where
 
+import Api (ScheduleStatus)
 import Api qualified as A
 import Commands (Command (Add, Drive), Commander)
 import Control.Lens (Field2 (_2), (^.))
 import Control.Lens.Extras (is)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
-import Data.Time (getCurrentTime)
+import Data.Time (UTCTime, diffUTCTime, getCurrentTime, nominalDiffTimeToSeconds)
 import Database (findPlant, labelPlant, listPlants, schedulePlant)
 import Database.Persist.Sql (ConnectionPool)
 import GHC.IO (catchAny)
@@ -17,7 +18,6 @@ import Network.Wai.Middleware.Cors (simpleCors)
 import Paths_plantrs (getDataDir)
 import Schedule (Schedules, reschedulePlant)
 import Servant
-import System.Cron (parseCronSchedule)
 import Text.Blaze.Html5 (Html)
 import View qualified
 
@@ -42,35 +42,47 @@ labelHandler :: ConnectionPool -> Text -> A.LabelReq -> Handler ()
 labelHandler db plant req = labelPlant db plant (req ^. A.label)
 
 scheduleHandler :: ConnectionPool -> Commander -> Schedules -> Text -> A.ScheduleReq -> Handler (Union A.ScheduleResponse)
-scheduleHandler _ _ _ _ req
-  | Left err <- parseCronSchedule (req ^. A.cron) =
-      respond $ WithStatus @400 (toText err)
 scheduleHandler db cmd scheds name req = do
-  schedulePlant db name (req ^. A.cron) (req ^. A.volume)
-  mPlant <- findPlant db name
-  status <- liftIO $ forM mPlant $ reschedulePlant cmd scheds
-  case status of
-    Nothing -> respond $ WithStatus @404 () -- no plant
-    Just (A.Scheduled _) -> respond $ WithStatus @200 () -- success
-    Just A.ScheduleError -> respond $ WithStatus @400 ("schedule error" :: Text)
-    Just A.NoSchedule -> respond $ WithStatus @400 ("failed to update" :: Text)
+  schedulePlant db name (req ^. A.cron) (req ^. A.volume) >>= \case
+    Left err -> respond $ WithStatus @400 (toText err) -- parse error
+    Right () -> do
+      mPlant <- findPlant db name
+      status <- liftIO $ forM mPlant $ reschedulePlant db cmd scheds
+      case status of
+        Nothing -> respond $ WithStatus @404 () -- no plant
+        Just (A.Scheduled _) -> respond $ WithStatus @200 () -- success
+        Just A.ScheduleError -> respond $ WithStatus @400 ("schedule error" :: Text)
+        Just A.NoSchedule -> respond $ WithStatus @400 ("failed to update" :: Text)
 
 watchdogHandler :: (MonadIO m) => Schedules -> m [A.OnlinePlant] -> m (Union A.HealthResponse)
 watchdogHandler schedules readPlants = do
   plants <- readPlants
   scheds <- readMVar schedules
-  let toStatus oPlant =
-        let pName = oPlant ^. A.plant . M.name
-            schedStatus = fromMaybe A.ScheduleError $ Map.lookup pName scheds
-            schedError = schedStatus == A.ScheduleError
-            offlineErr = is A._Scheduled schedStatus && not (oPlant ^. A.online)
-         in (pName, A.StatusSummary (oPlant ^. A.online) schedStatus (schedError || offlineErr))
-      statuses = map toStatus plants
+  now <- liftIO getCurrentTime
+  let statuses = map (plantSummary scheds now) plants
       anyError = any (^. (_2 . A.error)) statuses
       summary = Map.fromList statuses
   if anyError
     then respond $ WithStatus @500 summary
     else respond $ WithStatus @200 summary
+
+plantSummary :: Map Text ScheduleStatus -> UTCTime -> A.OnlinePlant -> (Text, A.StatusSummary)
+plantSummary scheds now oPlant =
+  (pName, summary)
+  where
+    pName = oPlant ^. A.plant . M.name
+    lastWatered = oPlant ^. A.plant . M.nextWatering
+    waterErr = (> 0) . nominalDiffTimeToSeconds . diffUTCTime now <$> lastWatered
+    schedStatus = fromMaybe A.ScheduleError $ Map.lookup pName scheds
+    schedError = schedStatus == A.ScheduleError
+    offlineErr = is A._Scheduled schedStatus && not (oPlant ^. A.online)
+    summary =
+      A.StatusSummary
+        (oPlant ^. A.online)
+        (oPlant ^. A.plant . M.waterCron)
+        schedStatus
+        lastWatered
+        (schedError || offlineErr || fromMaybe False waterErr)
 
 indexHandler :: (MonadIO m) => m [A.OnlinePlant] -> m Html
 indexHandler getPlants = do
