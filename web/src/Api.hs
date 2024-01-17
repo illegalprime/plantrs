@@ -35,6 +35,8 @@ type DiscoverAPI = "discover" :> Get '[JSON] [OnlinePlant]
 
 type WatchdogAPI = "health" :> UVerb 'GET '[JSON] HealthResponse
 
+type PlantCardsAPI = "plant-cards" :> Get '[HTML] Html
+
 -- Responses
 
 type HtmxResponse = Headers '[Header "HX-Retarget" Text, Header "HX-Reswap" Text] Html
@@ -54,6 +56,7 @@ type AppApi =
     :<|> CapturePlant :> LabelAPI
     :<|> CapturePlant :> ScheduleAPI
     :<|> DiscoverAPI
+    :<|> PlantCardsAPI
     :<|> Get '[HTML] Html
     :<|> Raw
 

@@ -9,7 +9,7 @@ import Control.Lens (Field2 (_2), (^.))
 import Control.Lens.Extras (is)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
-import Data.Time (UTCTime, diffUTCTime, getCurrentTime, getCurrentTimeZone, nominalDiffTimeToSeconds)
+import Data.Time (TimeZone, UTCTime, diffUTCTime, getCurrentTime, getCurrentTimeZone, nominalDiffTimeToSeconds)
 import Database (findPlant, labelPlant, listPlants, schedulePlant)
 import Database.Persist.Sql (ConnectionPool)
 import GHC.IO (catchAny)
@@ -85,12 +85,15 @@ plantSummary scheds now oPlant =
         lastWatered
         (schedError || offlineErr || fromMaybe False waterErr)
 
-indexHandler :: (MonadIO m) => m [A.OnlinePlant] -> m Html
-indexHandler getPlants = do
+buildSummary :: (MonadIO m) => m [A.OnlinePlant] -> ([A.OnlinePlant] -> (UTCTime, TimeZone) -> Html) -> m Html
+buildSummary getPlants f = do
   time <- liftIO getCurrentTime
   zone <- liftIO getCurrentTimeZone
   plants <- getPlants
-  pure $ View.index plants (time, zone)
+  pure $ f plants (time, zone)
+
+plantCardsHandler :: (MonadIO m) => m [A.OnlinePlant] -> m Html
+plantCardsHandler getPlants = buildSummary getPlants View.plantCards
 
 server :: FilePath -> ConnectionPool -> Commander -> Schedules -> MVar (Set Text) -> Server A.AppApi
 server static db cmd scheds clients =
@@ -102,7 +105,8 @@ server static db cmd scheds clients =
     :<|> labelHandler db
     :<|> scheduleHandler db cmd scheds
     :<|> readPlants
-    :<|> indexHandler readPlants
+    :<|> plantCardsHandler readPlants
+    :<|> buildSummary readPlants View.index -- index.html
     :<|> serveDirectoryWebApp static
   where
     readPlants = allPlants db clients

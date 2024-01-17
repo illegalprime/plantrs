@@ -23,7 +23,7 @@ index plants now = page $ do
 
 plantCards :: [OnlinePlant] -> (UTCTime, TimeZone) -> Html
 plantCards plants now = do
-  H.section ! A.class_ "section" $ do
+  H.section ! A.class_ "section" ! X.hxGet "/plant-cards" ! X.hxTrigger "every 5s" ! X.hxSwap "outerHTML" $ do
     H.div ! A.class_ "container is-max-desktop" $ do
       H.div ! A.class_ "columns" $ do
         forM_ plants (plantCard now)
