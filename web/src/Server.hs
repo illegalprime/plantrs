@@ -70,9 +70,10 @@ plantSummary :: Map Text ScheduleStatus -> UTCTime -> A.OnlinePlant -> (Text, A.
 plantSummary scheds now oPlant =
   (pName, summary)
   where
+    tBuf = 30 -- give thirty seconds to execute watering command
     pName = oPlant ^. A.plant . M.name
     lastWatered = oPlant ^. A.plant . M.nextWatering
-    waterErr = (> 0) . nominalDiffTimeToSeconds . diffUTCTime now <$> lastWatered
+    waterErr = (> tBuf) . nominalDiffTimeToSeconds . diffUTCTime now <$> lastWatered
     schedStatus = fromMaybe A.ScheduleError $ Map.lookup pName scheds
     schedError = schedStatus == A.ScheduleError
     offlineErr = is A._Scheduled schedStatus && not (oPlant ^. A.online)
