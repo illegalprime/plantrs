@@ -75,7 +75,7 @@ displaySmallSchedule (now, zone) cron vol = case nextTime of
   Right (Just next) -> H.p $ H.toHtml $ text $ fmtTime next
   where
     text :: String -> String
-    text = printf "Will water %dmL on %s" vol
+    text = printf "Will water %ds on %s" vol
     fmtTime = formatTime defaultTimeLocale "%b %e, %l:%M%P"
     nextTime = utcToZonedTime zone <<$>> second (`nextMatch` now) (parseCronSchedule cron)
 
