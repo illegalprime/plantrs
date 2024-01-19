@@ -1,48 +1,69 @@
 module Server (
   app,
+  AppEnv (..),
 ) where
 
 import Api (ScheduleStatus)
 import Api qualified as A
 import Commands (Command (Add, Drive), Commander)
-import Control.Lens (Field2 (_2), (^.))
+import Control.Exception (try)
+import Control.Lens (Field2 (_2), makeFieldsNoPrefix, view, (^.))
 import Control.Lens.Extras (is)
 import Data.Map.Strict qualified as Map
-import Data.Set qualified as Set
 import Data.Time (TimeZone, UTCTime, diffUTCTime, getCurrentTime, getCurrentTimeZone, nominalDiffTimeToSeconds)
-import Database (findPlant, labelPlant, listPlants, schedulePlant)
+import Database (findPlant, labelPlant, schedulePlant)
 import Database.Persist.Sql (ConnectionPool)
-import GHC.IO (catchAny)
 import Models qualified as M
-import Network.Wai.Middleware.Cors (simpleCors)
-import Paths_plantrs (getDataDir)
 import Schedule (Schedules, reschedulePlant)
 import Servant
 import Text.Blaze.Html5 (Html)
 import View qualified
 
-waterHandler :: (MonadIO m) => Commander -> Text -> Maybe Word32 -> m ()
-waterHandler commander plant secs = do
-  liftIO $ void $ commander plant $ Drive $ fromMaybe 0 secs
+-- App Monad
 
-htmxWaterHandler :: Commander -> Text -> Maybe Text -> Maybe Word32 -> Handler A.HtmxResponse
-htmxWaterHandler commander plant _header secs =
-  toastHtmx
-    ((False, "Success.") <$ waterHandler commander plant secs)
-    (\e -> pure (True, "Failure: " <> show e))
+data AppEnv = AppEnv
+  { _database :: ConnectionPool
+  , _commander :: Commander
+  , _schedules :: Schedules
+  , _allPlants :: IO [A.OnlinePlant]
+  , _static :: FilePath
+  }
 
-addHandler :: Commander -> Text -> A.AddReq -> Handler Text
-addHandler commander plant addReq = do
-  liftIO $ commander plant $ Add (addReq ^. A.a) (addReq ^. A.b)
+makeFieldsNoPrefix ''AppEnv
 
-infoHandler :: ConnectionPool -> Text -> Handler (Maybe M.Plant)
-infoHandler = findPlant
+type AppM = ReaderT AppEnv Handler
 
-labelHandler :: ConnectionPool -> Text -> A.LabelReq -> Handler ()
-labelHandler db plant req = labelPlant db plant (req ^. A.label)
+-- Handlers
 
-scheduleHandler :: ConnectionPool -> Commander -> Schedules -> Text -> A.ScheduleReq -> Handler (Union A.ScheduleResponse)
-scheduleHandler db cmd scheds name req = do
+waterHandler :: Text -> Maybe Word32 -> AppM ()
+waterHandler plant secs = do
+  cmds <- view commander
+  liftIO $ void $ cmds plant $ Drive $ fromMaybe 0 secs
+
+htmxWaterHandler :: Text -> Maybe Text -> Maybe Word32 -> AppM A.HtmxResponse
+htmxWaterHandler plant _header secs = do
+  toastHtmx $ "Success." <$ waterHandler plant secs
+
+addHandler :: Text -> A.AddReq -> AppM Text
+addHandler plant addReq = do
+  cmds <- view commander
+  liftIO $ cmds plant $ Add (addReq ^. A.a) (addReq ^. A.b)
+
+infoHandler :: Text -> AppM (Maybe M.Plant)
+infoHandler name = do
+  db <- view database
+  findPlant db name
+
+labelHandler :: Text -> A.LabelReq -> AppM ()
+labelHandler plant req = do
+  db <- view database
+  labelPlant db plant (req ^. A.label)
+
+scheduleHandler :: Text -> A.ScheduleReq -> AppM (Union A.ScheduleResponse)
+scheduleHandler name req = do
+  db <- view database
+  cmd <- view commander
+  scheds <- view schedules
   schedulePlant db name (req ^. A.cron) (req ^. A.volume) >>= \case
     Left err -> respond $ WithStatus @400 (toText err) -- parse error
     Right () -> do
@@ -54,10 +75,10 @@ scheduleHandler db cmd scheds name req = do
         Just A.ScheduleError -> respond $ WithStatus @400 ("schedule error" :: Text)
         Just A.NoSchedule -> respond $ WithStatus @400 ("failed to update" :: Text)
 
-watchdogHandler :: (MonadIO m) => Schedules -> m [A.OnlinePlant] -> m (Union A.HealthResponse)
-watchdogHandler schedules readPlants = do
-  plants <- readPlants
-  scheds <- readMVar schedules
+watchdogHandler :: AppM (Union A.HealthResponse)
+watchdogHandler = do
+  plants <- liftIO =<< view allPlants
+  scheds <- readMVar =<< view schedules
   now <- liftIO getCurrentTime
   let statuses = map (plantSummary scheds now) plants
       anyError = any (^. (_2 . A.error)) statuses
@@ -65,6 +86,32 @@ watchdogHandler schedules readPlants = do
   if anyError
     then respond $ WithStatus @500 summary
     else respond $ WithStatus @200 summary
+
+buildSummary :: ([A.OnlinePlant] -> (UTCTime, TimeZone) -> Html) -> AppM Html
+buildSummary f = do
+  plants <- liftIO =<< view allPlants
+  time <- liftIO getCurrentTime
+  zone <- liftIO getCurrentTimeZone
+  pure $ f plants (time, zone)
+
+server :: FilePath -> ServerT A.AppApi AppM
+server serveDir = do
+  watchdogHandler
+    :<|> htmxWaterHandler
+    :<|> waterHandler
+    :<|> addHandler
+    :<|> infoHandler
+    :<|> labelHandler
+    :<|> scheduleHandler
+    :<|> (liftIO =<< view allPlants)
+    :<|> buildSummary View.plantCards
+    :<|> buildSummary View.index -- index.html
+    :<|> serveDirectoryWebApp serveDir
+
+app :: AppEnv -> Application
+app env = serve A.appApi $ hoistServer A.appApi (usingReaderT env) $ server (env ^. static)
+
+-- Helpers
 
 plantSummary :: Map Text ScheduleStatus -> UTCTime -> A.OnlinePlant -> (Text, A.StatusSummary)
 plantSummary scheds now oPlant =
@@ -85,51 +132,15 @@ plantSummary scheds now oPlant =
         lastWatered
         (schedError || offlineErr || fromMaybe False waterErr)
 
-buildSummary :: (MonadIO m) => m [A.OnlinePlant] -> ([A.OnlinePlant] -> (UTCTime, TimeZone) -> Html) -> m Html
-buildSummary getPlants f = do
-  time <- liftIO getCurrentTime
-  zone <- liftIO getCurrentTimeZone
-  plants <- getPlants
-  pure $ f plants (time, zone)
-
-plantCardsHandler :: (MonadIO m) => m [A.OnlinePlant] -> m Html
-plantCardsHandler getPlants = buildSummary getPlants View.plantCards
-
-server :: FilePath -> ConnectionPool -> Commander -> Schedules -> MVar (Set Text) -> Server A.AppApi
-server static db cmd scheds clients =
-  watchdogHandler scheds readPlants
-    :<|> htmxWaterHandler cmd
-    :<|> waterHandler cmd
-    :<|> addHandler cmd
-    :<|> infoHandler db
-    :<|> labelHandler db
-    :<|> scheduleHandler db cmd scheds
-    :<|> readPlants
-    :<|> plantCardsHandler readPlants
-    :<|> buildSummary readPlants View.index -- index.html
-    :<|> serveDirectoryWebApp static
-  where
-    readPlants = allPlants db clients
-
-app :: ConnectionPool -> Commander -> Schedules -> MVar (Set Text) -> IO Application
-app db commander schedules clients = do
-  -- directory to serve static files from
-  static <- getDataDir
-  -- build app description
-  pure $ simpleCors $ serve A.appApi $ server static db commander schedules clients
-
-allPlants :: (MonadIO m) => ConnectionPool -> MVar (Set Text) -> m [A.OnlinePlant]
-allPlants db onlineState = do
-  plants <- listPlants db
-  online <- readMVar onlineState
-  pure $ map (decorateOnline online) plants
-  where
-    decorateOnline online plant = A.OnlinePlant plant $ Set.member (plant ^. M.name) online
-
-toastHtmx :: IO (Bool, Text) -> (forall e. (Exception e) => e -> IO (Bool, Text)) -> Handler A.HtmxResponse
-toastHtmx action handler = do
-  (isErr, result) <- liftIO $ catchAny action handler
+toastHtmx :: AppM Text -> AppM A.HtmxResponse
+toastHtmx action = do
+  ioAction <- runHandler . runReaderT action <$> ask
+  ioTry <- liftIO $ try ioAction
+  let (isErr, msg) = case ioTry :: Either SomeException (Either ServerError Text) of
+        Left err -> (True, show err)
+        Right (Left err) -> (True, show err)
+        Right (Right rp) -> (False, show rp)
   pure $
     addHeader (toText $ "#" <> View.toastId) $
       addHeader "beforeend" $
-        View.toast isErr result
+        View.toast isErr msg

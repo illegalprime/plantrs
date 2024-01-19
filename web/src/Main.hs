@@ -10,14 +10,15 @@ import Data.Maybe (fromJust)
 import Data.Set qualified as Set
 import Data.Yaml (ToJSON (toJSON), encode)
 import Data.Yaml.Config (loadYamlSettingsArgs, useEnv)
-import Database (listPlants)
+import Database (listOnline, listPlants)
 import Database.Persist.Sqlite (createSqlitePool, runMigration, runSqlPool)
 import Discovery (foldOnline, runMqtt)
 import Models (migrateAll)
 import Network.URI (parseURI)
 import Network.Wai.Handler.Warp
+import Paths_plantrs (getDataDir)
 import Schedule (schedulePlants)
-import Server (app)
+import Server (AppEnv (AppEnv), app)
 import Text.Printf (printf)
 
 main :: IO ()
@@ -51,8 +52,16 @@ main = do
   _ <- forkIO $ foldOnline pool onlineStatus online
   -- schedule crons
   schedules <- schedulePlants pool commander =<< listPlants pool
-  -- build web app
-  api <- app pool commander schedules onlineStatus
+  -- find directory for static files
+  serveDir <- getDataDir
+  -- make app state
+  let env =
+        AppEnv
+          pool
+          commander
+          schedules
+          (listOnline pool onlineStatus)
+          serveDir
   -- spawn webserver on port
   putStrLn $ printf "Running server on port %d..." (cfg ^. port)
-  run (cfg ^. port) api
+  run (cfg ^. port) $ app env
