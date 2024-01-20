@@ -139,6 +139,7 @@ executable plantrs
     Paths_plantrs
     Schedule
     Server
-    View
+    Views.Common
+    Views.Overview
 
   autogen-modules: Paths_plantrs

@@ -17,7 +17,8 @@ import Models qualified as M
 import Schedule (Schedules, reschedulePlant)
 import Servant
 import Text.Blaze.Html5 (Html)
-import View qualified
+import Views.Common qualified as Common
+import Views.Overview qualified as Overview
 
 -- App Monad
 
@@ -104,8 +105,8 @@ server serveDir = do
     :<|> labelHandler
     :<|> scheduleHandler
     :<|> (liftIO =<< view allPlants)
-    :<|> buildSummary View.plantCards
-    :<|> buildSummary View.index -- index.html
+    :<|> buildSummary Overview.plantCards
+    :<|> buildSummary Overview.index -- index.html
     :<|> serveDirectoryWebApp serveDir
 
 app :: AppEnv -> Application
@@ -141,6 +142,6 @@ toastHtmx action = do
         Right (Left err) -> (True, show err)
         Right (Right rp) -> (False, show rp)
   pure $
-    addHeader (toText $ "#" <> View.toastId) $
+    addHeader "#toaster" $
       addHeader "beforeend" $
-        View.toast isErr msg
+        Common.toast isErr msg
