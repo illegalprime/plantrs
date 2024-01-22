@@ -18,6 +18,7 @@ import Schedule (Schedules, reschedulePlant)
 import Servant
 import Text.Blaze.Html5 (Html)
 import Views.Common qualified as Common
+import Views.Detail qualified as Detail
 import Views.Overview qualified as Overview
 
 -- App Monad
@@ -26,7 +27,9 @@ data AppEnv = AppEnv
   { _database :: ConnectionPool
   , _commander :: Commander
   , _schedules :: Schedules
-  , _allPlants :: IO [A.OnlinePlant]
+  , -- TODO: can the bottom two be unified?
+    _allPlants :: IO [A.OnlinePlant]
+  , _onlinePlant :: Text -> IO (Maybe A.OnlinePlant)
   , _static :: FilePath
   }
 
@@ -54,6 +57,10 @@ infoHandler :: Text -> AppM (Maybe M.Plant)
 infoHandler name = do
   db <- view database
   findPlant db name
+
+htmxLabelHandler :: Text -> Maybe Text -> A.LabelReq -> AppM A.HtmxResponse
+htmxLabelHandler plant _h req = do
+  toastHtmx $ "Renamed." <$ labelHandler plant req
 
 labelHandler :: Text -> A.LabelReq -> AppM ()
 labelHandler plant req = do
@@ -91,9 +98,23 @@ watchdogHandler = do
 buildSummary :: ([A.OnlinePlant] -> (UTCTime, TimeZone) -> Html) -> AppM Html
 buildSummary f = do
   plants <- liftIO =<< view allPlants
+  now <- liftIO timeInfo
+  pure $ f plants now
+
+detailHandler :: Text -> AppM Html
+detailHandler name = do
+  findOnline <- view onlinePlant
+  mPlant <- liftIO $ findOnline name
+  now <- liftIO timeInfo
+  case mPlant of
+    Just p -> pure $ Detail.index now p
+    Nothing -> throwError err404
+
+timeInfo :: IO (UTCTime, TimeZone)
+timeInfo = do
   time <- liftIO getCurrentTime
   zone <- liftIO getCurrentTimeZone
-  pure $ f plants (time, zone)
+  pure (time, zone)
 
 server :: FilePath -> ServerT A.AppApi AppM
 server serveDir = do
@@ -102,11 +123,13 @@ server serveDir = do
     :<|> waterHandler
     :<|> addHandler
     :<|> infoHandler
+    :<|> htmxLabelHandler
     :<|> labelHandler
     :<|> scheduleHandler
     :<|> (liftIO =<< view allPlants)
     :<|> buildSummary Overview.plantCards
     :<|> buildSummary Overview.index -- index.html
+    :<|> detailHandler
     :<|> serveDirectoryWebApp serveDir
 
 app :: AppEnv -> Application
@@ -140,7 +163,7 @@ toastHtmx action = do
   let (isErr, msg) = case ioTry :: Either SomeException (Either ServerError Text) of
         Left err -> (True, show err)
         Right (Left err) -> (True, show err)
-        Right (Right rp) -> (False, show rp)
+        Right (Right rp) -> (False, rp)
   pure $
     addHeader "#toaster" $
       addHeader "beforeend" $

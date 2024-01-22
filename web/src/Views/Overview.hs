@@ -2,9 +2,8 @@ module Views.Overview where
 
 import Api (HasOnline (online), HasPlant (plant), OnlinePlant)
 import Control.Lens ((^.))
-import Data.Time (TimeZone, UTCTime, defaultTimeLocale, formatTime, utcToZonedTime)
+import Data.Time (TimeZone, UTCTime)
 import Models (label, name, waterCron, waterVolume)
-import System.Cron (nextMatch, parseCronSchedule)
 import Text.Blaze.Html5 (Html, (!))
 import Text.Blaze.Html5 qualified as H
 import Text.Blaze.Html5.Attributes qualified as A
@@ -19,23 +18,26 @@ plantCards :: [OnlinePlant] -> (UTCTime, TimeZone) -> Html
 plantCards plants now = do
   H.section ! A.class_ "section" ! X.hxGet "/plant-cards" ! X.hxTrigger "every 5s" ! X.hxSwap "outerHTML" $ do
     H.div ! A.class_ "container is-max-desktop" $ do
-      H.div ! A.class_ "columns" $ do
+      H.div ! A.class_ "columns" ! X.hxBoost $ do
         forM_ plants (plantCard now)
 
 plantCard :: (UTCTime, TimeZone) -> OnlinePlant -> Html
 plantCard now oPlant = do
   let waterReq = X.hxPost $ fromString $ printf "/%s/water?t=5" $ oPlant ^. plant . name
+  let detailReq = A.href $ fromString $ printf "/plant/%s" $ oPlant ^. plant . name
   H.div ! A.class_ "column is-one-third" $ do
     H.div ! A.class_ "card" $ do
       plantImage
       H.div ! A.class_ "card-content" $ do
         H.div ! A.class_ "content" $ do
-          H.h2 $ H.toHtml $ oPlant ^. plant . label
+          H.h2 $ H.a ! detailReq $ H.toHtml $ oPlant ^. plant . label
           H.div ! A.class_ "block is-vcentered" $ do
             onlineIndicator (oPlant ^. online)
-            case oPlant ^. plant . waterCron of
-              Nothing -> H.p $ H.i "no water schedule"
-              Just cron -> displaySmallSchedule now cron $ oPlant ^. plant . waterVolume
+            H.p $
+              Common.displaySmallSchedule
+                now
+                (oPlant ^. plant . waterCron)
+                (oPlant ^. plant . waterVolume)
           H.div ! A.class_ "block has-text-right" $ do
             H.button
               ! A.class_ "button"
@@ -67,14 +69,3 @@ onlineIndicator isOnline = H.p $ do
     text False = "Offline"
     style True = "color: #4adc4b;"
     style False = "color: #d94c50;"
-
-displaySmallSchedule :: (UTCTime, TimeZone) -> Text -> Word32 -> Html
-displaySmallSchedule (now, zone) cron vol = case nextTime of
-  Left err -> H.i $ H.toHtml err
-  Right Nothing -> H.i "No upcoming watering."
-  Right (Just next) -> H.p $ H.toHtml $ text $ fmtTime next
-  where
-    text :: String -> String
-    text = printf "Will water %ds on %s" vol
-    fmtTime = formatTime defaultTimeLocale "%b %e, %l:%M%P"
-    nextTime = utcToZonedTime zone <<$>> second (`nextMatch` now) (parseCronSchedule cron)

@@ -10,7 +10,7 @@ import Data.Maybe (fromJust)
 import Data.Set qualified as Set
 import Data.Yaml (ToJSON (toJSON), encode)
 import Data.Yaml.Config (loadYamlSettingsArgs, useEnv)
-import Database (listOnline, listPlants)
+import Database (findOnline, listOnline, listPlants)
 import Database.Persist.Sqlite (createSqlitePool, runMigration, runSqlPool)
 import Discovery (foldOnline, runMqtt)
 import Models (migrateAll)
@@ -61,6 +61,7 @@ main = do
           commander
           schedules
           (listOnline pool onlineStatus)
+          (findOnline pool onlineStatus)
           serveDir
   -- spawn webserver on port
   putStrLn $ printf "Running server on port %d..." (cfg ^. port)

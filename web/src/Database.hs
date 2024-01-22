@@ -44,8 +44,15 @@ nextWater cron f = do
 
 listOnline :: (MonadIO m) => ConnectionPool -> MVar (Set Text) -> m [A.OnlinePlant]
 listOnline db onlineState = do
-  plants <- listPlants db
+  decorateOnline onlineState =<< listPlants db
+
+findOnline :: (MonadIO m) => ConnectionPool -> MVar (Set Text) -> Text -> m (Maybe A.OnlinePlant)
+findOnline db onlineState name = do
+  decorateOnline onlineState =<< findPlant db name
+
+decorateOnline :: (MonadIO m, Functor f) => MVar (Set Text) -> f Plant -> m (f A.OnlinePlant)
+decorateOnline onlineState fPlant = do
   online <- readMVar onlineState
-  pure $ map (decorateOnline online) plants
+  pure $ appendOnline online <$> fPlant
   where
-    decorateOnline online plant = A.OnlinePlant plant $ Set.member (plant ^. M.name) online
+    appendOnline online plant = A.OnlinePlant plant $ Set.member (plant ^. M.name) online

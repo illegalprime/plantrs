@@ -1,9 +1,12 @@
 module Views.Common where
 
+import Data.Time (TimeZone, UTCTime, defaultTimeLocale, formatTime, utcToZonedTime)
+import System.Cron (nextMatch, parseCronSchedule)
 import Text.Blaze.Html5 (Html, (!))
 import Text.Blaze.Html5 qualified as H
 import Text.Blaze.Html5.Attributes qualified as A
 import Text.Blaze.Htmx qualified as X
+import Text.Printf (printf)
 
 page :: Html -> Html
 page content = do
@@ -40,7 +43,8 @@ title :: Html
 title = do
   H.nav
     ! A.class_ "level mt-5 mb-0"
-    $ H.p
+    $ H.a
+      ! A.href "/"
       ! A.class_ "is-size-1 level-item has-text-centered"
     $ "Plant.rs"
 
@@ -58,3 +62,18 @@ toast isError text = do
   where
     colorErr True = "is-danger"
     colorErr False = "is-success"
+
+classes :: [Text] -> H.Attribute
+classes = A.class_ . fromString . toString . unwords
+
+displaySmallSchedule :: (UTCTime, TimeZone) -> Maybe Text -> Word32 -> Html
+displaySmallSchedule _ Nothing _ = H.i "No water schedule."
+displaySmallSchedule (now, zone) (Just cron) vol = case nextTime of
+  Left err -> H.i $ H.toHtml err
+  Right Nothing -> H.i "No upcoming watering."
+  Right (Just next) -> H.toHtml $ text $ fmtTime next
+  where
+    text :: String -> String
+    text = printf "Will water %ds on %s." vol
+    fmtTime = formatTime defaultTimeLocale "%b %e, %l:%M%P"
+    nextTime = utcToZonedTime zone <<$>> second (`nextMatch` now) (parseCronSchedule cron)

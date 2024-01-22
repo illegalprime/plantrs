@@ -27,7 +27,7 @@ type AddAPI = "add" :> ReqBody '[FormUrlEncoded, JSON] AddReq :> Post '[JSON] Te
 
 type InfoAPI = "info" :> Get '[JSON] (Maybe Models.Plant)
 
-type LabelAPI = "label" :> ReqBody '[FormUrlEncoded, JSON] LabelReq :> Post '[JSON] ()
+type LabelAPI mime reply = "label" :> ReqBody '[FormUrlEncoded, JSON] LabelReq :> Post '[mime] reply
 
 type ScheduleAPI = "schedule" :> (ReqBody '[FormUrlEncoded, JSON] ScheduleReq :> UVerb 'POST '[JSON] ScheduleResponse)
 
@@ -36,6 +36,8 @@ type DiscoverAPI = "discover" :> Get '[JSON] [OnlinePlant]
 type WatchdogAPI = "health" :> UVerb 'GET '[JSON] HealthResponse
 
 type PlantCardsAPI = "plant-cards" :> Get '[HTML] Html
+
+type DetailPlantAPI = "plant" :> CapturePlant :> Get '[HTML] Html
 
 -- Responses
 
@@ -53,11 +55,13 @@ type AppApi =
     :<|> CapturePlant :> Json WaterAPI ()
     :<|> CapturePlant :> AddAPI
     :<|> CapturePlant :> InfoAPI
-    :<|> CapturePlant :> LabelAPI
+    :<|> CapturePlant :> Htmx LabelAPI
+    :<|> CapturePlant :> Json LabelAPI ()
     :<|> CapturePlant :> ScheduleAPI
     :<|> DiscoverAPI
     :<|> PlantCardsAPI
     :<|> Get '[HTML] Html
+    :<|> DetailPlantAPI
     :<|> Raw
 
 appApi :: Proxy AppApi
