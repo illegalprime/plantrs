@@ -97,6 +97,7 @@ common shared
     , cron
     , data-default
     , directory
+    , errors
     , exceptions
     , filepath
     , http-api-data
@@ -117,6 +118,7 @@ common shared
     , servant-server
     , shower
     , time
+    , transformers
     , wai
     , wai-cors
     , warp

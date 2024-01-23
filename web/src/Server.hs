@@ -10,13 +10,15 @@ import Control.Exception (try)
 import Control.Lens (Field2 (_2), makeFieldsNoPrefix, view, (^.))
 import Control.Lens.Extras (is)
 import Data.Map.Strict qualified as Map
-import Data.Time (TimeZone, UTCTime, diffUTCTime, getCurrentTime, getCurrentTimeZone, nominalDiffTimeToSeconds)
+import Data.Text (splitOn)
+import Data.Time (TimeOfDay (TimeOfDay), TimeZone, UTCTime, diffUTCTime, getCurrentTime, getCurrentTimeZone, localToUTCTimeOfDay, nominalDiffTimeToSeconds)
 import Database (findPlant, labelPlant, schedulePlant)
 import Database.Persist.Sql (ConnectionPool)
 import Models qualified as M
 import Schedule (Schedules, reschedulePlant)
 import Servant
 import Text.Blaze.Html5 (Html)
+import Text.Printf (printf)
 import Views.Common qualified as Common
 import Views.Detail qualified as Detail
 import Views.Overview qualified as Overview
@@ -46,7 +48,7 @@ waterHandler plant secs = do
 
 htmxWaterHandler :: Text -> Maybe Text -> Maybe Word32 -> AppM A.HtmxResponse
 htmxWaterHandler plant _header secs = do
-  toastHtmx $ "Success." <$ waterHandler plant secs
+  toastHtmx "Success." $ waterHandler plant secs
 
 addHandler :: Text -> A.AddReq -> AppM Text
 addHandler plant addReq = do
@@ -60,28 +62,46 @@ infoHandler name = do
 
 htmxLabelHandler :: Text -> Maybe Text -> A.LabelReq -> AppM A.HtmxResponse
 htmxLabelHandler plant _h req = do
-  toastHtmx $ "Renamed." <$ labelHandler plant req
+  toastHtmx "Renamed." $ labelHandler plant req
 
 labelHandler :: Text -> A.LabelReq -> AppM ()
 labelHandler plant req = do
   db <- view database
   labelPlant db plant (req ^. A.label)
 
-scheduleHandler :: Text -> A.ScheduleReq -> AppM (Union A.ScheduleResponse)
-scheduleHandler name req = do
+doSchedule :: Text -> Word32 -> Text -> AppM ()
+doSchedule name vol cron = do
   db <- view database
   cmd <- view commander
   scheds <- view schedules
-  schedulePlant db name (req ^. A.cron) (req ^. A.volume) >>= \case
-    Left err -> respond $ WithStatus @400 (toText err) -- parse error
-    Right () -> do
-      mPlant <- findPlant db name
-      status <- liftIO $ forM mPlant $ reschedulePlant db cmd scheds
-      case status of
-        Nothing -> respond $ WithStatus @404 () -- no plant
-        Just (A.Scheduled _) -> respond $ WithStatus @200 () -- success
-        Just A.ScheduleError -> respond $ WithStatus @400 ("schedule error" :: Text)
-        Just A.NoSchedule -> respond $ WithStatus @400 ("failed to update" :: Text)
+  () <- schedulePlant db name cron vol >>= either (const $ throwError err400) pure
+  p <- findPlant db name >>= maybe (throwError err404) pure
+  liftIO (reschedulePlant db cmd scheds p) >>= \case
+    (A.Scheduled _) -> pass
+    A.ScheduleError -> throwError err400
+    A.NoSchedule -> throwError err400
+
+scheduleHandler :: Text -> A.ScheduleReq -> AppM ()
+scheduleHandler name req = do
+  doSchedule name (req ^. A.volume) (req ^. A.cron)
+
+simpleScheduleHandler :: Maybe Text -> A.SimpleScheduleReq -> AppM A.HtmxResponse
+simpleScheduleHandler _h req = do
+  toastErrorOr runSchedReq (pure signalRefresh)
+  where
+    runSchedReq = do
+      -- parse time string
+      (localH, localM :: Word32) <- case readMaybe . toString <$> splitOn ":" (req ^. A.time) of
+        [Just hh, Just mm] | hh < 24 && mm < 60 -> pure (hh, mm)
+        _ -> throwError err400
+      -- adjust time zone
+      let tod = TimeOfDay (fromIntegral localH) (fromIntegral localM) 0
+      zone <- liftIO getCurrentTimeZone
+      let (_, TimeOfDay hh mm _) = localToUTCTimeOfDay zone tod
+      -- build cron tab
+      let cron = printf "%d %d */%d * *" mm hh (req ^. A.repeat) :: String
+      -- apply the new schedule
+      doSchedule (req ^. A.name) (req ^. A.volume) (toText cron)
 
 watchdogHandler :: AppM (Union A.HealthResponse)
 watchdogHandler = do
@@ -126,6 +146,7 @@ server serveDir = do
     :<|> htmxLabelHandler
     :<|> labelHandler
     :<|> scheduleHandler
+    :<|> simpleScheduleHandler
     :<|> (liftIO =<< view allPlants)
     :<|> buildSummary Overview.plantCards
     :<|> buildSummary Overview.index -- index.html
@@ -156,15 +177,24 @@ plantSummary scheds now oPlant =
         lastWatered
         (schedError || offlineErr || fromMaybe False waterErr)
 
-toastHtmx :: AppM Text -> AppM A.HtmxResponse
-toastHtmx action = do
+makeToast :: Bool -> Text -> A.HtmxResponse
+makeToast isErr msg =
+  addHeader "#toaster" $
+    addHeader "beforeend" $
+      noHeader $
+        Common.toast isErr msg
+
+signalRefresh :: A.HtmxResponse
+signalRefresh = noHeader $ noHeader $ addHeader "true" ""
+
+toastErrorOr :: AppM () -> AppM A.HtmxResponse -> AppM A.HtmxResponse
+toastErrorOr action fallback = do
   ioAction <- runHandler . runReaderT action <$> ask
   ioTry <- liftIO $ try ioAction
-  let (isErr, msg) = case ioTry :: Either SomeException (Either ServerError Text) of
-        Left err -> (True, show err)
-        Right (Left err) -> (True, show err)
-        Right (Right rp) -> (False, rp)
-  pure $
-    addHeader "#toaster" $
-      addHeader "beforeend" $
-        Common.toast isErr msg
+  case ioTry :: Either SomeException (Either ServerError ()) of
+    Left err -> pure $ makeToast True $ show err
+    Right (Left err) -> pure $ makeToast True $ show err
+    Right (Right ()) -> fallback
+
+toastHtmx :: Text -> AppM () -> AppM A.HtmxResponse
+toastHtmx success action = toastErrorOr action $ pure $ makeToast False success

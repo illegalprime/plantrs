@@ -1,7 +1,12 @@
 module Views.Common where
 
+import Control.Error (failWith)
+import Control.Lens ((^.))
+import Control.Monad.Except (Except, runExcept)
+import Control.Monad.Trans.Except (except)
 import Data.Time (TimeZone, UTCTime, defaultTimeLocale, formatTime, utcToZonedTime)
-import System.Cron (nextMatch, parseCronSchedule)
+import Models (Plant, waterCron, waterVolume)
+import System.Cron (CronSchedule, defaultOpts, describe, nextMatch, parseCronSchedule)
 import Text.Blaze.Html5 (Html, (!))
 import Text.Blaze.Html5 qualified as H
 import Text.Blaze.Html5.Attributes qualified as A
@@ -66,14 +71,28 @@ toast isError text = do
 classes :: [Text] -> H.Attribute
 classes = A.class_ . fromString . toString . unwords
 
-displaySmallSchedule :: (UTCTime, TimeZone) -> Maybe Text -> Word32 -> Html
-displaySmallSchedule _ Nothing _ = H.i "No water schedule."
-displaySmallSchedule (now, zone) (Just cron) vol = case nextTime of
-  Left err -> H.i $ H.toHtml err
-  Right Nothing -> H.i "No upcoming watering."
-  Right (Just next) -> H.toHtml $ text $ fmtTime next
-  where
-    text :: String -> String
-    text = printf "Will water %ds on %s." vol
-    fmtTime = formatTime defaultTimeLocale "%b %e, %l:%M%P"
-    nextTime = utcToZonedTime zone <<$>> second (`nextMatch` now) (parseCronSchedule cron)
+displayNextWater :: (UTCTime, TimeZone) -> Plant -> Except String String
+displayNextWater (time, zone) p = do
+  cron <- parseCron $ p ^. waterCron
+  next <- failWith "No upcoming watering." $ nextMatch cron time
+  let zonedTime = utcToZonedTime zone next
+  let nextTime = formatTime defaultTimeLocale "%b %e, %l:%M%P" zonedTime
+  pure $ printf "Will water %ds on %s." (p ^. waterVolume) nextTime
+
+displaySchedule :: Plant -> Except String String
+displaySchedule p = do
+  cron <- parseCron (p ^. waterCron)
+  pure $ printf "%s, for %ds." (describe defaultOpts cron) (p ^. waterVolume)
+
+parseCron :: Maybe Text -> Except String CronSchedule
+parseCron mCron = do
+  failWith "No watering schedule." mCron >>= except . parseCronSchedule
+
+exceptToHtml :: Except String String -> Html
+exceptToHtml = either (H.i . H.toHtml) H.toHtml . runExcept
+
+bulmaField :: Maybe Html -> Html -> Html
+bulmaField fLabel field = do
+  H.div ! A.class_ "field" $ do
+    forM_ fLabel $ H.label ! A.class_ "label"
+    H.div ! A.class_ "control" $ field

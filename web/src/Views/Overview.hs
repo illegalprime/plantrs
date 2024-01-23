@@ -3,16 +3,16 @@ module Views.Overview where
 import Api (HasOnline (online), HasPlant (plant), OnlinePlant)
 import Control.Lens ((^.))
 import Data.Time (TimeZone, UTCTime)
-import Models (label, name, waterCron, waterVolume)
+import Models (label, name)
 import Text.Blaze.Html5 (Html, (!))
 import Text.Blaze.Html5 qualified as H
 import Text.Blaze.Html5.Attributes qualified as A
 import Text.Blaze.Htmx qualified as X
 import Text.Printf (printf)
-import Views.Common qualified as Common
+import Views.Common qualified as C
 
 index :: [OnlinePlant] -> (UTCTime, TimeZone) -> Html
-index plants now = Common.page $ plantCards plants now
+index plants now = C.page $ plantCards plants now
 
 plantCards :: [OnlinePlant] -> (UTCTime, TimeZone) -> Html
 plantCards plants now = do
@@ -33,11 +33,7 @@ plantCard now oPlant = do
           H.h2 $ H.a ! detailReq $ H.toHtml $ oPlant ^. plant . label
           H.div ! A.class_ "block is-vcentered" $ do
             onlineIndicator (oPlant ^. online)
-            H.p $
-              Common.displaySmallSchedule
-                now
-                (oPlant ^. plant . waterCron)
-                (oPlant ^. plant . waterVolume)
+            H.p $ C.exceptToHtml $ C.displayNextWater now (oPlant ^. plant)
           H.div ! A.class_ "block has-text-right" $ do
             H.button
               ! A.class_ "button"

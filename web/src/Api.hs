@@ -29,7 +29,9 @@ type InfoAPI = "info" :> Get '[JSON] (Maybe Models.Plant)
 
 type LabelAPI mime reply = "label" :> ReqBody '[FormUrlEncoded, JSON] LabelReq :> Post '[mime] reply
 
-type ScheduleAPI = "schedule" :> (ReqBody '[FormUrlEncoded, JSON] ScheduleReq :> UVerb 'POST '[JSON] ScheduleResponse)
+type ScheduleAPI = "schedule" :> ReqBody '[FormUrlEncoded, JSON] ScheduleReq :> Post '[JSON] ()
+
+type SimpleScheduleAPI mime reply = "simple-schedule" :> ReqBody '[FormUrlEncoded, JSON] SimpleScheduleReq :> Post '[mime] reply
 
 type DiscoverAPI = "discover" :> Get '[JSON] [OnlinePlant]
 
@@ -41,9 +43,7 @@ type DetailPlantAPI = "plant" :> CapturePlant :> Get '[HTML] Html
 
 -- Responses
 
-type HtmxResponse = Headers '[Header "HX-Retarget" Text, Header "HX-Reswap" Text] Html
-
-type ScheduleResponse = '[WithStatus 200 (), WithStatus 400 Text, WithStatus 404 ()]
+type HtmxResponse = Headers '[Header "HX-Retarget" Text, Header "HX-Reswap" Text, Header "HX-Refresh" Text] Html
 
 type HealthResponse = '[WithStatus 200 PlantStatuses, WithStatus 500 PlantStatuses]
 
@@ -58,6 +58,7 @@ type AppApi =
     :<|> CapturePlant :> Htmx LabelAPI
     :<|> CapturePlant :> Json LabelAPI ()
     :<|> CapturePlant :> ScheduleAPI
+    :<|> Htmx SimpleScheduleAPI
     :<|> DiscoverAPI
     :<|> PlantCardsAPI
     :<|> Get '[HTML] Html
@@ -81,6 +82,14 @@ newtype LabelReq = LabelReq
 data ScheduleReq = ScheduleReq
   { _volume :: Word32
   , _cron :: Text
+  }
+  deriving stock (Eq, Show, Generic)
+
+data SimpleScheduleReq = SimpleScheduleReq
+  { _volume :: Word32
+  , _time :: Text
+  , _repeat :: Word32
+  , _name :: Text
   }
   deriving stock (Eq, Show, Generic)
 
@@ -115,6 +124,7 @@ instance ToJSON ScheduleStatus where
 makeFieldsNoPrefix ''AddReq
 makeFieldsNoPrefix ''LabelReq
 makeFieldsNoPrefix ''ScheduleReq
+makeFieldsNoPrefix ''SimpleScheduleReq
 makeFieldsNoPrefix ''OnlinePlant
 makeFieldsNoPrefix ''StatusSummary
 makeClassyPrisms ''ScheduleStatus
@@ -122,9 +132,11 @@ makeClassyPrisms ''ScheduleStatus
 instance FromForm AddReq
 instance FromForm LabelReq
 instance FromForm ScheduleReq
+instance FromForm SimpleScheduleReq
 
 deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''AddReq
 deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''LabelReq
 deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''ScheduleReq
+deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''SimpleScheduleReq
 deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''OnlinePlant
 deriveToJSON defaultOptions {fieldLabelModifier = drop 1} ''StatusSummary
