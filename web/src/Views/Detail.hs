@@ -17,7 +17,7 @@ index now oPlant = C.page $ do
   detailBanner now oPlant
   -- various plant details / actions
   let plantActions =
-        [ scheduleCard oPlant
+        [ scheduleCard (snd now) oPlant
         ]
   -- display plant actions as columns
   H.section ! A.class_ "section" $ do
@@ -41,15 +41,15 @@ detailBanner now oPlant = do
       H.p ! A.class_ "subtitle" $ do
         H.i $ if isOnline then "Online" else "Offline"
 
-scheduleCard :: OnlinePlant -> Html
-scheduleCard oPlant = do
+scheduleCard :: TimeZone -> OnlinePlant -> Html
+scheduleCard zone oPlant = do
   H.div ! A.class_ "card" $ do
     H.div ! A.class_ "card-content" $ do
       H.p ! A.class_ "title" $ "Watering Schedule"
       H.hr
       H.p ! A.class_ "subtitle" $ do
-        H.i "Currently (UTC): "
-        C.exceptToHtml $ C.displaySchedule (oPlant ^. plant)
+        H.i "Currently: "
+        C.exceptToHtml $ C.displaySchedule zone (oPlant ^. plant)
       H.hr
       scheduleForm oPlant
 

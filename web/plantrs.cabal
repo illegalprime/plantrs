@@ -112,6 +112,7 @@ common shared
     , persistent-sqlite
     , profunctors
     , random
+    , regex-tdfa
     , relude             >=1.0
     , servant
     , servant-blaze
