@@ -69,7 +69,7 @@ toast isError text = do
     colorErr False = "is-success"
 
 classes :: [Text] -> H.Attribute
-classes = A.class_ . fromString . toString . unwords
+classes = A.class_ . H.toValue . unwords
 
 displayNextWater :: (UTCTime, TimeZone) -> Plant -> Except String String
 displayNextWater (time, zone) p = do

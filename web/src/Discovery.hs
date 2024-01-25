@@ -5,7 +5,7 @@ module Discovery where
 
 import BroadcastChan (BroadcastChan, In)
 import BroadcastChan.Throw (writeBChan)
-import Config (HasDiscover (discover), HasGoodbye (goodbye), HasHello (hello), HasResponse (response), Topics, toTopic)
+import Config (HasDiscover (discover), HasGoodbye (goodbye), HasHello (hello), HasResponse (response), Topics)
 import Control.Concurrent (Chan, modifyMVar_, readChan, threadDelay, writeChan)
 import Control.Exception (Handler (Handler), IOException, catches, throwIO)
 import Control.Lens ((^.))
@@ -65,21 +65,21 @@ initDiscover topics mc = do
   print
     =<< subscribe
       mc
-      [ (toFilter (toTopic $ topics ^. hello), subOptions {_subQoS = QoS1})
-      , (toFilter (toTopic $ topics ^. goodbye), subOptions {_subQoS = QoS1})
-      , (toFilter (toTopic $ topics ^. response), subOptions {_subQoS = QoS1})
+      [ (toFilter $ topics ^. hello, subOptions {_subQoS = QoS1})
+      , (toFilter $ topics ^. goodbye, subOptions {_subQoS = QoS1})
+      , (toFilter $ topics ^. response, subOptions {_subQoS = QoS1})
       ]
       []
   -- send initial request for clients
-  publish mc (toTopic $ topics ^. discover) "ping" False
+  publish mc (topics ^. discover) "ping" False
 
 mqttHandler :: Topics -> BroadcastChan In MqttMsg -> NotifyOnline -> MessageCallback
 mqttHandler topics tx online =
   SimpleCallback handler
   where
     handler _ topic message _ = case topic of
-      t | t == toTopic (topics ^. hello) -> writeChan online (msg, Online)
-      t | t == toTopic (topics ^. goodbye) -> writeChan online (msg, Offline)
+      t | t == topics ^. hello -> writeChan online (msg, Online)
+      t | t == topics ^. goodbye -> writeChan online (msg, Offline)
       t -> writeBChan tx (t, message)
       where
         msg = decodeUtf8 message

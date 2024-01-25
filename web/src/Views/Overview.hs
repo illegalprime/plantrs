@@ -23,8 +23,8 @@ plantCards plants now = do
 
 plantCard :: (UTCTime, TimeZone) -> OnlinePlant -> Html
 plantCard now oPlant = do
-  let waterReq = X.hxPost $ fromString $ printf "/%s/water?t=5" $ oPlant ^. plant . name
-  let detailReq = A.href $ fromString $ printf "/plant/%s" $ oPlant ^. plant . name
+  let waterReq = X.hxPost $ H.stringValue $ printf "/%s/water?t=5" $ oPlant ^. plant . name
+  let detailReq = A.href $ H.stringValue $ printf "/plant/%s" $ oPlant ^. plant . name
   H.div ! A.class_ "column is-one-third" $ do
     H.div ! A.class_ "card" $ do
       plantImage

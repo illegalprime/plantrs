@@ -29,8 +29,8 @@ detailBanner :: (UTCTime, TimeZone) -> OnlinePlant -> Html
 detailBanner now oPlant = do
   let isOnline = oPlant ^. online
       onlineClass = if isOnline then "is-success" else "is-danger"
-      pLabel = fromString . toString $ oPlant ^. plant . label
-      labelReq = X.hxPost $ fromString $ printf "/%s/label" $ oPlant ^. plant . name
+      pLabel = H.toValue $ oPlant ^. plant . label
+      labelReq = X.hxPost $ H.stringValue $ printf "/%s/label" $ oPlant ^. plant . name
   H.section ! C.classes ["hero", onlineClass, "mt-5"] $ do
     H.div ! A.class_ "hero-body" $ do
       H.form ! A.class_ "title" ! A.onsubmit "this[0].blur()" ! labelReq $ do
@@ -62,7 +62,7 @@ scheduleForm oPlant = do
       H.input ! A.name "_time" ! A.class_ "input" ! A.type_ "time"
     C.bulmaField (Just "Repeat every (days):") $ do
       H.input ! A.name "_repeat" ! A.class_ "input" ! A.type_ "number" ! A.placeholder "2"
-    let pName = fromString . toString $ oPlant ^. plant . name
+    let pName = H.toValue $ oPlant ^. plant . name
     H.input ! A.type_ "hidden" ! A.name "_name" ! A.value pName
     C.bulmaField Nothing $ do
       H.button ! A.class_ "button is-primary" $ "Update"

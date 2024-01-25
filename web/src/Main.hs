@@ -4,7 +4,9 @@ import BroadcastChan (newBChanListener, newBroadcastChan)
 import Commands (runCommand)
 import Config
 import Control.Concurrent (forkIO, newChan)
+import Control.Exception (throwIO)
 import Control.Lens ((^.))
+import Control.Monad.Except (runExcept)
 import Control.Monad.Logger (runStderrLoggingT)
 import Data.Maybe (fromJust)
 import Data.Set qualified as Set
@@ -24,9 +26,11 @@ import Text.Printf (printf)
 main :: IO ()
 main = do
   -- load configuration file
-  cfg <- loadYamlSettingsArgs [toJSON defaultConfig] useEnv :: IO Configuration
+  rawCfg <- loadYamlSettingsArgs [toJSON defaultConfig] useEnv :: IO (Configuration UnvalidatedTopics)
   -- print current configuration
-  putBSLn $ encode cfg
+  putBSLn $ encode rawCfg
+  -- validate given topics
+  cfg <- either throwIO pure $ runExcept $ validateConfig rawCfg
   -- load database
   pool <- runStderrLoggingT $ case cfg ^. db of
     Sqlite path -> createSqlitePool path 5
