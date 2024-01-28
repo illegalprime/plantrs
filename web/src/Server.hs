@@ -3,9 +3,7 @@ module Server (
   AppEnv (..),
 ) where
 
-import Api (ScheduleStatus)
-import Api qualified as A
-import Commands (Command (Add, Drive), Commander)
+import Commands (Commander)
 import Control.Exception (try)
 import Control.Lens (Field2 (_2), makeFieldsNoPrefix, view, (^.))
 import Control.Lens.Extras (is)
@@ -14,7 +12,9 @@ import Data.Text (splitOn)
 import Data.Time (TimeOfDay (TimeOfDay), TimeZone, UTCTime, diffUTCTime, getCurrentTime, getCurrentTimeZone, localToUTCTimeOfDay, nominalDiffTimeToSeconds)
 import Database (findPlant, labelPlant, schedulePlant)
 import Database.Persist.Sql (ConnectionPool)
+import HttpApi qualified as A
 import Models qualified as M
+import MqttApi (Command (Add, Drive))
 import Schedule (Schedules, reschedulePlant)
 import Servant
 import Text.Blaze.Html5 (Html)
@@ -158,7 +158,7 @@ app env = serve A.appApi $ hoistServer A.appApi (usingReaderT env) $ server (env
 
 -- Helpers
 
-plantSummary :: Map Text ScheduleStatus -> UTCTime -> A.OnlinePlant -> (Text, A.StatusSummary)
+plantSummary :: Map Text A.ScheduleStatus -> UTCTime -> A.OnlinePlant -> (Text, A.StatusSummary)
 plantSummary scheds now oPlant =
   (pName, summary)
   where

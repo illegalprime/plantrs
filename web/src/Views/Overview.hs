@@ -1,8 +1,8 @@
 module Views.Overview where
 
-import Api (HasOnline (online), HasPlant (plant), OnlinePlant)
 import Control.Lens ((^.))
 import Data.Time (TimeZone, UTCTime)
+import HttpApi (HasOnline (online), HasPlant (plant), OnlinePlant)
 import Models (label, name)
 import Text.Blaze.Html5 (Html, (!))
 import Text.Blaze.Html5 qualified as H

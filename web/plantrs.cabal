@@ -133,12 +133,13 @@ executable plantrs
   import:          shared
   main-is:         Main.hs
   other-modules:
-    Api
     Commands
     Config
     Database
     Discovery
+    HttpApi
     Models
+    MqttApi
     Paths_plantrs
     Schedule
     Server

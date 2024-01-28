@@ -1,4 +1,4 @@
-module Api where
+module HttpApi where
 
 import Control.Concurrent (ThreadId)
 import Control.Lens (makeClassyPrisms, makeFieldsNoPrefix)

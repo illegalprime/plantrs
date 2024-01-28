@@ -1,13 +1,14 @@
 module Schedule where
 
-import Api (AsScheduleStatus (_Scheduled), ScheduleStatus (NoSchedule, ScheduleError, Scheduled))
-import Commands (Command (Drive), Commander)
+import Commands (Commander)
 import Control.Concurrent (killThread)
 import Control.Lens ((^.), (^?))
 import Data.Map.Strict qualified as Map
 import Database (bumpPlant)
 import Database.Persist.Sql (ConnectionPool)
+import HttpApi (AsScheduleStatus (_Scheduled), ScheduleStatus (NoSchedule, ScheduleError, Scheduled))
 import Models (Plant (Plant, _waterCron), name, waterCron, waterVolume)
+import MqttApi (Command (Drive))
 import System.Cron (MonadSchedule (addJob), execSchedule)
 
 type Schedules = MVar (Map Text ScheduleStatus)

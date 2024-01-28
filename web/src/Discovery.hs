@@ -12,11 +12,11 @@ import Control.Lens ((^.))
 import Data.Set qualified as Set
 import Database (newPlant)
 import Database.Persist.Sql (ConnectionPool)
-import Network.MQTT.Client (MQTTClient, MQTTConfig (_msgCB), MQTTException, MessageCallback (SimpleCallback), QoS (QoS1), SubOptions (_subQoS), Topic, connectURI, mqttConfig, publish, subOptions, subscribe)
+import MqttApi (MqttMsg)
+import Network.MQTT.Client (MQTTClient, MQTTConfig (_msgCB), MQTTException, MessageCallback (SimpleCallback), QoS (QoS1), SubOptions (_subQoS), connectURI, mqttConfig, publish, subOptions, subscribe)
 import Network.MQTT.Topic (toFilter)
 import Network.URI (URI)
 
-type MqttMsg = (Topic, LByteString)
 type Comms = (BroadcastChan In MqttMsg, Chan MqttMsg)
 type NotifyOnline = Chan (Text, OnlineStatus)
 data OnlineStatus = Online | Offline

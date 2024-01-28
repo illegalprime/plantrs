@@ -5,43 +5,14 @@ import BroadcastChan.Throw (readBChan)
 import Config (HasRequest (request), HasResponse (response), Topics, validateTopic)
 import Control.Concurrent (Chan, writeChan)
 import Control.Exception (throwIO)
-import Control.Lens (makeFieldsNoPrefix, (^.))
+import Control.Lens ((^.))
 import Control.Monad.Except (runExcept)
 import Control.Monad.Loops (untilJust)
-import Data.Aeson (Options (constructorTagModifier, fieldLabelModifier, sumEncoding), SumEncoding (ObjectWithSingleField), decode, defaultOptions, encode)
-import Data.Aeson.Casing (snakeCase)
-import Data.Aeson.TH (deriveJSON)
-import Discovery (MqttMsg)
+import Data.Aeson (decode, encode)
+import MqttApi (Command, HasBody (body), HasCorrelate (correlate), MqttMsg, Request (Request), Response)
 import Network.MQTT.Topic (Topic (unTopic))
 import System.Random (randomIO)
 import System.Timeout (timeout)
-
-data Command
-  = Add Word32 Word32
-  | Drive Word32
-  deriving stock (Eq, Show, Generic)
-
-deriveJSON defaultOptions {sumEncoding = ObjectWithSingleField, constructorTagModifier = snakeCase} ''Command
-
-data Request = Request
-  { _command :: Command
-  , _response_topic :: Text
-  , _correlate :: Word64
-  }
-  deriving stock (Eq, Show, Generic)
-
-deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''Request
-
-data Response = Response
-  { _body :: Text
-  , _correlate :: Word64
-  }
-  deriving stock (Eq, Show, Generic)
-
-deriveJSON defaultOptions {fieldLabelModifier = drop 1} ''Response
-
-makeFieldsNoPrefix ''Request
-makeFieldsNoPrefix ''Response
 
 type Commander = Text -> Command -> IO Text
 type Comms = (IO (BroadcastChan Out MqttMsg), Chan MqttMsg)
