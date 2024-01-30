@@ -10,7 +10,7 @@ import Control.Lens.Extras (is)
 import Data.Map.Strict qualified as Map
 import Data.Text (splitOn)
 import Data.Time (TimeOfDay (TimeOfDay), TimeZone, UTCTime, diffUTCTime, getCurrentTime, getCurrentTimeZone, localToUTCTimeOfDay, nominalDiffTimeToSeconds)
-import Database (findPlant, labelPlant, schedulePlant)
+import Database (findPlant, labelPlant, schedulePlant, wateringsForPlant)
 import Database.Persist.Sql (ConnectionPool)
 import HttpApi qualified as A
 import Models qualified as M
@@ -126,8 +126,9 @@ detailHandler name = do
   findOnline <- view onlinePlant
   mPlant <- liftIO $ findOnline name
   now <- liftIO timeInfo
+  history <- flip wateringsForPlant name =<< view database
   case mPlant of
-    Just p -> pure $ Detail.index now p
+    Just p -> pure $ Detail.index now p history
     Nothing -> throwError err404
 
 timeInfo :: IO (UTCTime, TimeZone)

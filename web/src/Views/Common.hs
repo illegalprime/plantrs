@@ -73,13 +73,16 @@ toast isError text = do
 classes :: [Text] -> H.Attribute
 classes = A.class_ . H.toValue . unwords
 
+displayTime :: TimeZone -> UTCTime -> String
+displayTime zone now =
+  let zonedTime = utcToZonedTime zone now
+   in formatTime defaultTimeLocale "%b %e, %l:%M%P" zonedTime
+
 displayNextWater :: (UTCTime, TimeZone) -> Plant -> Except String String
 displayNextWater (time, zone) p = do
   cron <- parseCron $ p ^. waterCron
   next <- failWith "No upcoming watering." $ nextMatch cron time
-  let zonedTime = utcToZonedTime zone next
-  let nextTime = formatTime defaultTimeLocale "%b %e, %l:%M%P" zonedTime
-  pure $ printf "Will water %ds on %s." (p ^. waterVolume) nextTime
+  pure $ printf "Will water %ds on %s." (p ^. waterVolume) $ displayTime zone next
 
 displaySchedule :: TimeZone -> Plant -> Except String Text
 displaySchedule zone p = do
