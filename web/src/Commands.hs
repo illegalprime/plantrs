@@ -4,11 +4,13 @@ import BroadcastChan (BroadcastChan, Out)
 import BroadcastChan.Throw (readBChan)
 import Config (HasRequest (request), HasResponse (response), Topics, validateTopic)
 import Control.Concurrent (Chan, writeChan)
-import Control.Exception (throwIO)
+import Control.Exception (throwIO, try)
 import Control.Lens ((^.))
 import Control.Monad.Except (runExcept)
 import Control.Monad.Loops (untilJust)
 import Data.Aeson (decode, encode)
+import Database (logActivity)
+import Database.Persist.Sql (ConnectionPool)
 import MqttApi (Command, HasBody (body), HasCorrelate (correlate), MqttMsg, Request (Request), Response)
 import Network.MQTT.Topic (Topic (unTopic))
 import System.Random (randomIO)
@@ -21,11 +23,23 @@ data CommandTimeout = CommandTimeout
   deriving stock (Show)
 instance Exception CommandTimeout
 
-runCommand :: Topics -> Comms -> Commander
-runCommand topics (getSubChan, tx) plant cmd = do
+newtype CommandError = CommandError Text
+  deriving stock (Show)
+instance Exception CommandError
+
+runCommand :: ConnectionPool -> Topics -> Comms -> Commander
+runCommand db topics comms plant cmd = do
+  -- execute request
+  res <- try $ runCommand' topics comms plant cmd :: IO (Either SomeException Text)
+  -- log success/failure
+  logActivity db plant cmd (rightToMaybe res) (isRight res)
+  -- rethrow
+  either throwIO pure res
+
+runCommand' :: Topics -> Comms -> Commander
+runCommand' topics (getSubChan, tx) plant cmd = do
   -- prepare request
-  nonce <- randomIO
-  let req = Request cmd (unTopic $ topics ^. response) nonce
+  req <- Request cmd (unTopic $ topics ^. response) <$> randomIO
   -- there should never be an issue converting a plant name to a topic
   plantTopic <- either throwIO pure $ runExcept $ validateTopic plant
   let topic = (topics ^. request) <> plantTopic
@@ -41,8 +55,9 @@ runCommand topics (getSubChan, tx) plant cmd = do
     putTextLn (unwords ["[rx;", unTopic $ topics ^. response, "]", decodeUtf8 msg])
     case decode msg :: Maybe Response of
       Nothing -> Nothing <$ putLBSLn ("could not parse: " <> msg)
-      Just r | r ^. correlate == nonce -> pure $ Just $ r ^. body
-      _ -> pure Nothing
-  case mResponse of
-    Just t -> pure t
-    Nothing -> throwIO CommandTimeout
+      Just r | (r ^. correlate) /= (req ^. correlate) -> pure Nothing
+      Just r ->
+        if r ^. body == "ok" -- NOTE: only one success response type so far
+          then pure $ Just $ r ^. body
+          else throwIO $ CommandError $ r ^. body
+  maybe (throwIO CommandTimeout) pure mResponse

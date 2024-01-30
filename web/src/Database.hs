@@ -3,10 +3,11 @@ module Database where
 import Control.Lens ((^.))
 import Data.Set qualified as Set
 import Data.Time (UTCTime, getCurrentTime)
-import Database.Persist.Sql (ConnectionPool, Entity (entityVal), PersistQueryRead (exists, selectFirst), PersistQueryWrite (updateWhere), PersistStoreWrite (insert_), liftSqlPersistMPool, selectList, (=.), (==.))
+import Database.Persist.Sql (ConnectionPool, Entity (entityVal), PersistQueryRead (exists, selectFirst), PersistQueryWrite (updateWhere), PersistStoreWrite (insert_), SelectOpt (Desc, LimitTo), liftSqlPersistMPool, selectList, (=.), (==.))
 import HttpApi qualified as A
 import Models (EntityField (Label, Name, NextWatering, WaterCron, WaterVolume), Plant (Plant))
 import Models qualified as M
+import MqttApi (Command, commandName)
 import System.Cron (nextMatch, parseCronSchedule)
 
 -- Plants
@@ -56,3 +57,17 @@ decorateOnline onlineState fPlant = do
   pure $ appendOnline online <$> fPlant
   where
     appendOnline online plant = A.OnlinePlant plant $ Set.member (plant ^. M.name) online
+
+-- Activity Log
+logActivity :: (MonadIO m) => ConnectionPool -> Text -> Command -> Maybe Text -> Bool -> m ()
+logActivity db name req res success = do
+  now <- liftIO getCurrentTime
+  flip liftSqlPersistMPool db $ do
+    insert_ $ M.ActivityLog now name (commandName req) req res success
+
+wateringsForPlant :: (MonadIO m) => ConnectionPool -> Text -> m [M.ActivityLog]
+wateringsForPlant db name = flip liftSqlPersistMPool db $ do
+  entityVal
+    <<$>> selectList
+      [M.Target ==. name, M.CommandName ==. "drive"]
+      [Desc M.Time, LimitTo 10]

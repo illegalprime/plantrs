@@ -47,7 +47,7 @@ main = do
   -- online aggregate status
   onlineStatus <- newMVar Set.empty
   -- set up command handler
-  let commander = runCommand (cfg ^. topics) (getSubChan, pubChan)
+  let commander = runCommand pool (cfg ^. topics) (getSubChan, pubChan)
   -- broker uri
   let uri = fromJust $ parseURI $ toString (cfg ^. mqtt)
   -- start broker service
